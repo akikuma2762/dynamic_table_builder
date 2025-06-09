@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>動態欄位表格產生器 v7-完成版 (含 data-column 保存)</title>
+<style>
+body{font-family:Arial,'Noto Sans TC',sans-serif;margin:24px;line-height:1.5;}
+h1{margin-bottom:16px;}
+fieldset{border:1px solid #ccc;padding:12px;margin-bottom:16px;border-radius:6px;}
+legend{padding:0 6px;font-weight:600;}
+label{display:inline-block;margin-right:8px;margin-bottom:4px;}
+input[type="number"]{width:60px;}
+textarea{max-width:100%;max-height: 100px;min-height: 100px;width: 100%;height: 100px;resize: none;}
+button{padding:4px 10px;margin:4px 4px;}
+/* 外層容器負責圓角與邊框 */
+table.preview {
+  border-collapse: separate;   /* 分離模式才能用圓角 */
+  border-spacing: 0;           /* 邊框緊貼 */
+
+  overflow: hidden;            /* 裁切溢出 */
+  width: 100%;
+}
+
+/* 所有 cell 只畫「上、左」邊，避免重疊雙線 */
+table.preview th,
+table.preview td {
+  border-top: 1px solid #000;
+  border-left: 1px solid #000;
+  padding: 4px 6px;
+  word-wrap: break-word;
+}
+
+/* 右邊補上「右」邊框 */
+table.preview th:last-child,
+table.preview td:last-child {
+  border-right: 1px solid #000;
+}
+
+/* 底部補上「下」邊框 */
+table.preview tbody tr:last-child td {
+  border-bottom: 1px solid #000;
+}
+
+/* 表頭第一行圓角 */
+table.preview thead tr:first-child th:first-child {
+  border-top-left-radius: 8px;
+}
+table.preview thead tr:first-child th:last-child {
+  border-top-right-radius: 8px;
+}
+
+/* 資料區最後一行圓角 */
+table.preview tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 8px;
+}
+table.preview tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 8px;
+}
+.row-config{margin:8px 0;padding:8px;border:1px dashed #aaa;border-radius:4px;}
+.cell-config {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+}
+.cell-config input[type="text"]{width:110px;}
+
+.cells-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+  align-items: start;
+}
+.title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  background: #e0eaff;
+  padding: 4px 8px;
+  border-left: 4px solid #3a78c3;
+  border-radius: 4px 0 0 4px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+button { /* the element was button */
+  background-color: transparent;
+  color: rgb(0, 123, 255);
+  border: 2px solid rgb(0, 123, 255);
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.remove-button {
+  background-color: #dc3545; /* Red background */
+  color: white; /* White text */
+  border: none; /* No border */
+  border-radius: 4px; /* Rounded corners */
+  padding: 8px 16px; /* Padding */
+  cursor: pointer; /* Pointer cursor on hover */
+}
+
+.row-main-title:hover {
+  background-color: #d0ddff;
+}
+</style>
+
+<style>
+.accordion-row {
+  cursor: pointer;
+  background-color: #f1f1f1;
+  font-weight: bold;
+}
+.accordion-row:hover {
+  background-color: #e0e0e0;
+}
+.accordion-content {
+  display: none;
+}
+
+.row-main-title:hover {
+  background-color: #d0ddff;
+}
+
+/* ===== cell-config 摺疊樣式 ===== */
+.cell-config .body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  transition: max-height 0.3s ease;
+}
+.cell-config.collapsed .body {
+  display: none;
+}
+.cell-config .cell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 4px 0;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 4px;
+}
+.cell-config .cell-header span {
+  font-weight: bold;
+  font-size: 14px;
+}
+.cell-config .cell-header .collapse-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  
+}
+</style>
+<script>
+function toggleAccordion(rowEl) {
+  const next = rowEl.nextElementSibling;
+  if (next && next.classList.contains('accordion-content')) {
+    next.style.display = next.style.display === 'none' ? '' : 'none';
+  }
+}
+</script>
+
+</head>
+<body>
+
+<h1>動態欄位表格產生器 v7-完成版</h1>
+
+<fieldset>
+  <legend>表頭設定</legend>
+  <label>表頭列數
+    <select id="numHeaderRows">
+      <option value="1">1</option>
+      <option value="2" selected>2</option>
+      <option value="3">3</option>
+    </select>
+  </label>
+  <div id="headerRows"></div>
+</fieldset>
+
+<fieldset>
+  <legend>資料列設定</legend>
+  <label>資料列數 <input type="number" id="dataRows" value="3" min="1"></label>
+</fieldset>
+
+<fieldset>
+  <legend>色彩設定</legend>
+  <label>表頭背景色 <input type="color" id="headerBg" value="#d9eaff"></label>
+  <label>預設資料列背景色 <input type="color" id="dataBg" value="#ffffff"></label>
+</fieldset>
+
+<fieldset>
+  <legend>資料列詳細設定（可調整 colspan/rowspan / 背景色）</legend>
+  <small>※ 需先建立表頭後才能設定。</small>
+  <div id="dataRowsDetail"></div>
+</fieldset>
+
+<button id="generateBtn">產生表格</button>
+<button id="saveBtn">儲存至本機</button>
+<button id="loadBtn">讀取本機</button>
+
+<div id="table-output"></div>
+
+<script>
+const headerRows = [];
+const dataRowsCfg = [];
+
+init();
+function init(){
+  buildHeaderRows();
+  document.getElementById('numHeaderRows').addEventListener('change', buildHeaderRows);
+  document.getElementById('dataRows').addEventListener('input', buildDataRowsUI);
+  document.getElementById('generateBtn').addEventListener('click', generateTable);
+  document.getElementById('saveBtn').addEventListener('click', saveToLocal);
+  document.getElementById('loadBtn').addEventListener('click', loadFromLocal);
+}
+
+function buildHeaderRows(){
+  const container = document.getElementById('headerRows');
+  container.innerHTML = '';
+  const rows = +document.getElementById('numHeaderRows').value;
+  while(headerRows.length < rows) headerRows.push([]);
+  headerRows.length = rows;
+  for(let r=0; r<rows; r++){
+    const div = document.createElement('div'); div.className = 'row-config';
+    div.innerHTML = `<strong>第 ${r+1} 列</strong>
+      <button type="button" onclick="addHeaderCell(${r})">新增儲存格</button>
+      <div id="h-cells-${r}" class="cells-wrapper"></div>`;
+    container.appendChild(div);
+    renderHeaderCells(r);
+  }
+  buildDataRowsUI();
+}
+
+function addHeaderCell(r){
+  headerRows[r].push({text:'',en:'',colspan:1,rowspan:1,width:''});
+  renderHeaderCells(r);
+  buildDataRowsUI();
+}
+
+function removeHeaderCell(r,i){
+  headerRows[r].splice(i,1);
+  renderHeaderCells(r);
+  buildDataRowsUI();
+}
+
+function updateHeaderCell(r,i,k,v){
+  headerRows[r][i][k] = v;
+  buildDataRowsUI();
+  if (r === 1 && k === 'text') updateDataRowLabels(); // 監聽第二列中文更新
+}
+
+function renderHeaderCells(r){
+  const wrap = document.getElementById('h-cells-' + r);
+  wrap.innerHTML = '';
+  headerRows[r].forEach((cell,i) => {
+    const d = document.createElement('div');
+    d.className = 'cell-config';
+
+    // 1) 準備內層 body 的 HTML
+    const bodyHTML = `
+      <label><div class="title">中文</div>
+        <input type="text" value="${cell.text}" 
+          oninput="updateHeaderCell(${r},${i},'text',this.value)">
+      </label>
+      <label><div class="title">英文</div>
+        <input type="text" value="${cell.en}" 
+          oninput="updateHeaderCell(${r},${i},'en',this.value)">
+      </label>
+      <label><div class="title">合併欄</div>
+        <input type="number" min="1" value="${cell.colspan}" 
+          oninput="updateHeaderCell(${r},${i},'colspan',+this.value)">
+      </label>
+      <label><div class="title">合併列</div>
+        <input type="number" min="1" value="${cell.rowspan}" 
+          oninput="updateHeaderCell(${r},${i},'rowspan',+this.value)">
+      </label>
+      <label><div class="title">寬度比例</div>
+        <input type="number" min="0" value="${cell.width}" 
+          oninput="updateHeaderCell(${r},${i},'width',this.value)">
+      </label>
+      <button type="button" class="remove-button"
+        onclick="removeHeaderCell(${r},${i})">移除</button>
+    `;
+
+    // 2) 組合 cell-config 的 header 與 body
+    d.innerHTML = `
+      <div class="cell-header">
+        <span>儲存格設定-${i + 1}</span>
+        <button type="button" class="collapse-btn">–</button>
+      </div>
+      <div class="body">${bodyHTML}</div>
+    `;
+
+    // 3) 綁定摺疊按鈕 / 點擊整個 header 也會觸發
+    const header = d.querySelector('.cell-header');
+    const btn    = d.querySelector('.collapse-btn');
+    function toggle(){
+      d.classList.toggle('collapsed');
+      btn.textContent = d.classList.contains('collapsed') ? '+' : '–';
+    }
+    header.addEventListener('click', toggle);
+
+    wrap.appendChild(d);
+  });
+}
+
+function getLeaf(){
+  const g = [], rows = headerRows.length;
+  for(let r=0; r<rows; r++){
+    if(!g[r]) g[r] = [];
+    let c = 0;
+    headerRows[r].forEach(cell => {
+      while(g[r][c]) c++;
+      const cs = +cell.colspan || 1, rs = +cell.rowspan || 1;
+      for(let rr=0; rr<rs; rr++){
+        for(let cc=0; cc<cs; cc++){
+          if(!g[r+rr]) g[r+rr] = [];
+          g[r+rr][c+cc] = {en:cell.en, width:cell.width, text:cell.text};
+        }
+      }
+      c++;
+    });
+  }
+  return rows ? g[rows - 1] : [];
+}
+
+
+function buildDataRowsUI(){
+  const leaf = getLeaf(), cols = leaf.length, panel = document.getElementById('dataRowsDetail');
+  if(cols === 0){ panel.innerHTML = ''; return; }
+  const total = +document.getElementById('dataRows').value || 1;
+
+  while(dataRowsCfg.length < total)
+    dataRowsCfg.push({color:'', cells: Array.from({length:cols}, () => ({text:'',colspan:1,rowspan:1}))});
+  dataRowsCfg.length = total;
+  dataRowsCfg.forEach(r => {
+    while(r.cells.length < cols) r.cells.push({text:'',colspan:1,rowspan:1});
+    r.cells.length = cols;
+  });
+
+  panel.innerHTML = '';
+  dataRowsCfg.forEach((row, i) => {
+    const title = document.createElement('div');
+    title.className = 'row-main-title';
+    title.textContent = `▶ 資料列 ${i + 1}`;
+    title.style.cursor = 'pointer';
+    title.style.padding = '6px';
+    title.style.margin = '6px 0';
+    title.style.backgroundColor = '#e0eaff';
+    title.style.fontWeight = 'bold';
+   title.addEventListener('click', () => {
+      const body = document.getElementById(`d-row-${i}`);
+      if (body.style.display === 'none') {
+        // 從摺疊開啟
+        body.style.display = 'block';
+        title.textContent = `▼ 資料列 ${i + 1}`;  // 箭頭向下
+      } else {
+        // 從展開摺疊
+        body.style.display = 'none';
+        title.textContent = `▶ 資料列 ${i + 1}`;  // 箭頭向右
+      }
+    });
+    panel.appendChild(title);
+
+    const d = document.createElement('div');
+    d.className = 'row-config';
+    d.id = `d-row-${i}`;
+    d.style.display = 'none';
+    d.innerHTML = `<label>背景色 <input type="color" value="${row.color||'#ffffff'}" onchange="dataRowsCfg[${i}].color=this.value"></label>
+      <div id="d-cells-${i}" class="cells-wrapper"></div>`;
+    panel.appendChild(d);
+    renderDataCells(i);
+  });
+
+  updateDataRowLabels();
+}
+
+
+function renderDataCells(r){
+  const wrap = document.getElementById('d-cells-' + r);
+  wrap.innerHTML = '';
+  const leaf = getLeaf();
+  dataRowsCfg[r].cells.forEach((cell,i) => {
+    const d = document.createElement('div');
+    d.className = 'cell-config collapsed';
+
+    const labelText = leaf[i]?.text || '欄位名稱';
+    const bodyHTML = `
+      <label><div class="title">${labelText}</div>
+        <textarea oninput="dataRowsCfg[${r}].cells[${i}].text=this.value;autogrow(this)">${cell.text}</textarea>
+      </label>
+      <label><div class="title">合併欄</div>
+        <input type="number" min="1" value="${cell.colspan}" oninput="dataRowsCfg[${r}].cells[${i}].colspan=+this.value">
+      </label>
+      <label><div class="title">合併列</div>
+        <input type="number" min="1" value="${cell.rowspan}" oninput="dataRowsCfg[${r}].cells[${i}].rowspan=+this.value">
+      </label>
+    `;
+
+    d.innerHTML = `
+      <div class="cell-header">
+        <span>${labelText}</span>
+        <button type="button" class="collapse-btn">+</button>
+      </div>
+      <div class="body">${bodyHTML}</div>
+    `;
+
+    const header = d.querySelector('.cell-header');
+    const btn    = d.querySelector('.collapse-btn');
+    function toggle(){
+      d.classList.toggle('collapsed');
+      btn.textContent = d.classList.contains('collapsed') ? '+' : '–';
+    }
+    header.addEventListener('click', toggle);
+
+    wrap.appendChild(d);
+  });
+}
+
+function updateDataRowLabels(){
+  const leaf = getLeaf();
+  dataRowsCfg.forEach((_, rowIndex) => {
+    leaf.forEach((col, colIndex) => {
+      const labelEl = document.querySelector(`#d-cells-${rowIndex} .cell-config:nth-child(${colIndex + 1}) label`);
+      if(labelEl && col.text) labelEl.childNodes[0].nodeValue = col.text + ' ';
+    });
+  });
+}
+
+function autogrow(textarea){
+  textarea.style.height = 'auto';
+  textarea.style.height = (textarea.scrollHeight) + 'px';
+}
+
+function contrast(h){
+  const r=parseInt(h.substr(1,2),16),g=parseInt(h.substr(3,2),16),b=parseInt(h.substr(5,2),16);
+  return (r*299+g*587+b*114)/1000 >= 128 ? '#000' : '#fff';
+}
+
+
+function buildTbody(defaultBg) {
+  const leaf = getLeaf();
+  const cols = leaf.length;
+  const rows = dataRowsCfg.length;
+  const occ = [];
+  const out = [];
+
+  for (let r = 0; r < rows; r++) {
+    occ[r] = Array(cols).fill(false);
+    const bg = dataRowsCfg[r].color || defaultBg;
+    const textColor = contrast(bg);
+
+    // 開頭 tr，沒有 accordion-row class，也沒 onclick
+    let t = `<tr style="background:${bg};color:${textColor};">`;
+
+    for (let c = 0; c < cols; c++) {
+      if (occ[r][c]) continue;
+
+      const cell = dataRowsCfg[r].cells[c];
+      let cs = +cell.colspan || 1;
+      let rs = +cell.rowspan || 1;
+      if (c + cs > cols) cs = cols - c;
+      if (r + rs > rows) rs = rows - r;
+
+      // 標記被合併過的單元格
+      for (let rr = 0; rr < rs; rr++) {
+        for (let cc = 0; cc < cs; cc++) {
+          occ[r + rr][c + cc] = true;
+        }
+      }
+
+      const dataAttr = (cs === 1 && rs === 1 && leaf[c].en)
+        ? ` data-column="${leaf[c].en}"`
+        : '';
+      const htmlText = (cell.text || '').replace(/\n/g, '<br>');
+      t += `<td${dataAttr}`
+        + (cs > 1 ? ` colspan="${cs}"` : '')
+        + (rs > 1 ? ` rowspan="${rs}"` : '')
+        + `>${htmlText || '&nbsp;'}</td>`;
+    }
+
+    t += '</tr>';
+    out.push(t);
+  }
+
+  return out.join('');
+}
+
+
+
+function generateTable(){
+  const leaf = getLeaf(); if(!leaf.length){ alert('請先定義表頭！'); return; }
+  const hBg = document.getElementById('headerBg').value, dBg = document.getElementById('dataBg').value;
+  const hColor = contrast(hBg);
+  const colgroup = `<colgroup>${leaf.map(l => `<col style="width:${l.width||''}%;">`).join('')}</colgroup>`;
+  const thead = headerRows.map(r =>
+    '<tr>' + r.map(cell =>
+      `<th${cell.colspan>1 ? ` colspan="${cell.colspan}"` : ''}${cell.rowspan>1 ? ` rowspan="${cell.rowspan}"` : ''}${cell.en ? ` data-column="${cell.en}"` : ''}>${cell.text||'&nbsp;'}${cell.en ? '<br><small>' + cell.en + '</small>' : ''}</th>`
+    ).join('') + '</tr>'
+  ).join('');
+  const tbody = buildTbody(dBg);
+  document.getElementById('table-output').innerHTML = `<style>.custom th{background:${hBg};color:${hColor};}
+.row-main-title:hover {
+  background-color: #d0ddff;
+}
+</style>
+     <table class="preview custom">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+function saveToLocal(){
+  localStorage.setItem('dynamicTableJSON', JSON.stringify({headerRows, dataRowsCfg}));
+  alert('已保存！');
+}
+
+function loadFromLocal(){
+  const str = localStorage.getItem('dynamicTableJSON');
+  if(!str){ alert('沒有資料'); return; }
+  try {
+    const obj = JSON.parse(str);
+    headerRows.length = 0; obj.headerRows.forEach(r => headerRows.push(r));
+    dataRowsCfg.length = 0; obj.dataRowsCfg.forEach(r => dataRowsCfg.push(r));
+    document.getElementById('numHeaderRows').value = headerRows.length;
+    document.getElementById('dataRows').value = dataRowsCfg.length;
+    buildHeaderRows(); generateTable();
+  } catch(e){ alert('格式錯誤'); }
+}
+</script>
+</body>
+</html>
