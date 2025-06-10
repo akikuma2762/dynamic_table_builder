@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>拖放檢查表 · v7 LocalStorage 整合</title>
+    <style>
+    /* --- 與前版相同的樣式 --- */
+    body {
+      font-family: "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+      margin: 1.5rem;
+    }
+
+    #controls button {
+      margin-right: .5rem;
+      padding: 4px 10px;
+    }
+
+    #palette {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      padding: .5rem;
+      border: 1px dashed #999;
+      max-width: 100%;
+    }
+
+    .draggable-item {
+      background: #fffbe6;
+      border: 1px solid #f0c36d;
+      padding: .4rem;
+      cursor: grab;
+      width: 420px;
+    }
+
+    .reusable {
+      background: #e1f5fe;
+      border-color: #03a9f4;
+      width: 220px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    th,
+    td {
+      border: 1px solid #999;
+      padding: .6rem;
+      min-height: 44px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f5f5f5;
+    }
+
+    td.drop-hover {
+      background: #c8e6c9;
+    }
+
+    #outputArea,
+    #savedArea {
+      margin-top: 2rem;
+      border: 2px dashed #aaa;
+      padding: 1rem;
+    }
+
+    .saved-block {
+      border: 1px solid #777;
+      padding: .5rem;
+      margin-top: .8rem;
+    }
+
+    .saved-title {
+      font-weight: bold;
+      margin-bottom: .4rem;
+    }
+
+    .buttons-inline>button {
+      margin-right: .5rem;
+    }
+
+    textarea {
+      width: 180px;
+      height: 60px;
+      font-family: inherit;
+    }
+
+    .draggable-item textarea {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+      overflow-wrap: break-word;
+    }
+
+    .signature {
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+      align-items: center;
+    }
+
+    .sigCanvas {
+      border: 1px solid #666;
+      background: #fff;
+      width: 100%;
+      height: 60px;
+      touch-action: none;
+    }
+
+    .clearSig {
+      font-size: .75rem;
+    }
+
+    #sigModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, .6);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    #sigModal .modal-box {
+      background: #fff;
+      padding: 1rem;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+
+    #sigModal canvas {
+      border: 1px solid #333;
+    }
+
+    .draggable-item .del-btn {
+      text-align: end;
+      font-size: .8rem;
+      color: #f44336;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #builderPreview {
+      border: 1px dashed #ccc;
+      padding: .5rem;
+      min-height: 40px;
+      background: #fafafa;
+    }
+
+    .row-selected {
+      background: #e3f2fd !important;
+      color: #000 !important;
+    }
+
+    table.preview {
+      text-align: center;
+    }
+
+
+    /* ----- Palette 分區樣式 ----- */
+    #palette {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+
+    .palette-block {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      padding: .5rem;
+      border: 1px dashed #999;
+    }
+
+    .palette-block.native {
+      background: #fffbe6;
+      border-color: #f0c36d;
+    }
+
+    .palette-block.custom {
+      background: #e8fbe9;
+      border-color: #4caf50;
+    }
+  </style>
+
+    <!-- Quill WYSIWYG -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css"
+      rel="stylesheet">
+    <script
+      src="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.min.js"></script>
+
+  </head>
+
+  <body>
+    <h3>拖放檢查表（v7 LocalStorage 整合）</h3>
+
+    <!-- -------- 操作按鈕 -------- -->
+    <div id="controls">
+      <button id="previewBtn">匯出 / 預覽</button>
+      <button id="reloadBtn">重新讀取儲存資料</button>
+      <button id="clearLSBtn">⚠️ 清除所有儲存</button>
+    </div>
+
+    <!-- -------- 自訂 Item 產生器 -------- -->
+    <fieldset id="itemBuilder" style="margin-bottom:1rem;">
+      <legend>自訂檢查項目產生器</legend>
+
+      <label>
+        <div>Checkbox 標籤:</div>
+        <input id="builderChkLabel" type="text" placeholder="OK"
+          style="width:120px;">
+        <button id="btnAddChk" type="button">➕ 加入
+          Checkbox</button></label><br><br>
+      <label>
+        <div>文字輸入 placeholder:</div>
+        <input id="builderInputPH" type="text" placeholder="請輸入…"
+          style="width:160px;">
+        <button id="btnAddInput" type="button">➕ 加入輸入框</button></label><br><br>
+      <div id="quillToolbar"
+        style="border:1px solid #ccc;border-bottom:none;margin-bottom:0;">
+        <span class="ql-formats">
+          <button class="ql-bold"></button>
+          <button class="ql-italic"></button>
+          <button class="ql-underline"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-list" value="ordered"></button>
+          <button class="ql-list" value="bullet"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-link"></button>
+
+          <span class="ql-formats">
+            <select class="ql-size">
+              <option value="small"></option>
+              <option selected></option>
+              <option value="large"></option>
+              <option value="huge"></option>
+            </select>
+            <select class="ql-color"></select>
+            <select class="ql-background"></select>
+          </span>
+        </div>
+        <div id="quillEditor"
+          style="max-width:100%;height:160px;border:1px solid #ccc;margin-bottom:4px;"></div>
+        <div id="builderPreview">(預覽區)</div><br>
+        <button id="builderAddBtn" type="button">新增到調色盤</button>
+        <button id="builderClearBtn" type="button">清空輸入</button>
+      </fieldset>
+
+      <!-- -------- Palette -------- -->
+
+      <div id="palette">
+        <h4 style="margin:0 0 .25rem;">原生項目</h4>
+        <div id="palette-native" class="palette-block native">
+          <div id="item1" class="draggable-item" draggable="true">
+            刀套規格確認。<label><input type="checkbox"> CAT90</label>
+          </div>
+          <div id="chkReusable" class="draggable-item reusable"
+            draggable="true"><label><input type="checkbox"> OK</label>
+          </div>
+          <div id="txtReusable" class="draggable-item reusable"
+            draggable="true"><textarea placeholder="請輸入..."></textarea>
+          </div>
+          <div id="sigReusable" class="draggable-item reusable"
+            draggable="true">
+            <div class="signature">
+              <canvas class="sigCanvas" width="200" height="60"></canvas>
+              <button class="clearSig">清除</button>
+            </div>
+          </div>
+        </div>
+
+        <h4 style="margin:.75rem 0 .25rem;">自訂項目</h4>
+        <div id="palette-custom" class="palette-block custom">
+          <!-- 這裡會自動載入自訂項目 -->
+        </div>
+      </div>
+
+      <div id="tableWrap"></div>
+      <h4>預覽區：</h4>
+      <div id="outputArea">(尚未匯出)</div>
+      <!-- -------- 簽名 Modal -------- -->
+      <div id="sigModal">
+        <div class="modal-box">
+          <canvas id="modalCanvas" width="400" height="200"></canvas>
+          <div><button id="modalClear">清除</button><button
+              id="modalSave">儲存</button><button id="modalCancel">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <script>
+
+    /* ===== Keys ===== */
+    const ORIGIN_KEY = 'dynamicTableJSON';
+    const TMP_KEY = 'saveTableJSON_temp';
+    const FIN_KEY = 'saveTableJSON_final';
+
+    /* ===== helpers ===== */
+    const contrast = h => { const r = parseInt(h.substr(1, 2), 16), g = parseInt(h.substr(3, 2), 16), b = parseInt(h.substr(5, 2), 16); return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff'; };
+    const uid = () => `id_${Math.random().toString(36).slice(2, 10)}`;
+
+    /* ===== leaf ===== */
+    function leafCols(hRows) {
+      const R = hRows.length, g = [];
+      for (let r = 0; r < R; r++) {
+        g[r] ??= []; let c = 0;
+        hRows[r].forEach(cell => {
+          while (g[r][c]) c++;
+          const cs = +cell.colspan || 1, rs = +cell.rowspan || 1;
+          for (let rr = 0; rr < rs; rr++)for (let cc = 0; cc < cs; cc++) { g[r + rr] ??= []; g[r + rr][c + cc] = cell; }
+          c++;
+        });
+      }
+      return g[R - 1] || [];
+    }
+
+    /* ===== modal & signature ===== */
+    const sigModal = document.getElementById('sigModal');
+    const modalCanvas = document.getElementById('modalCanvas');
+    const mCtx = modalCanvas.getContext('2d'); mCtx.lineWidth = 2; mCtx.lineCap = 'round';
+    let mcDown = false, mcPrev = null, smallCvs = null;
+    const posMC = e => { const r = modalCanvas.getBoundingClientRect(); return { x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top }; };
+    modalCanvas.onmousedown = e => { mcDown = true; mcPrev = posMC(e); };
+    modalCanvas.onmousemove = e => { if (!mcDown) return; const p = posMC(e); mCtx.beginPath(); mCtx.moveTo(mcPrev.x, mcPrev.y); mCtx.lineTo(p.x, p.y); mCtx.stroke(); mcPrev = p; e.preventDefault(); };
+    window.onmouseup = () => mcDown = false;
+    modalCanvas.ontouchstart = e => { mcDown = true; mcPrev = posMC(e); };
+    modalCanvas.ontouchmove = e => { if (!mcDown) return; const p = posMC(e); mCtx.beginPath(); mCtx.moveTo(mcPrev.x, mcPrev.y); mCtx.lineTo(p.x, p.y); mCtx.stroke(); mcPrev = p; e.preventDefault(); };
+    modalCanvas.ontouchend = () => mcDown = false;
+    document.getElementById('modalClear').onclick = () => mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+    document.getElementById('modalCancel').onclick = () => { sigModal.style.display = 'none'; smallCvs = null; };
+    document.getElementById('modalSave').onclick = () => {
+      if (smallCvs) smallCvs.getContext('2d').drawImage(modalCanvas, 0, 0, smallCvs.width, smallCvs.height);
+      sigModal.style.display = 'none'; smallCvs = null;
+    };
+    function initSignature(holder) {
+      const cvs = holder.querySelector('.sigCanvas'); if (!cvs || cvs.dataset.bound) return;
+      cvs.dataset.bound = 1;
+      const ctx = cvs.getContext('2d'); ctx.lineWidth = 2; ctx.lineCap = 'round';
+      let down = false, prev = null;
+      const pos = e => { const r = cvs.getBoundingClientRect(); return { x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top }; };
+      const start = e => { down = true; prev = pos(e); };
+      const move = e => { if (!down) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke(); prev = p; e.preventDefault(); };
+      cvs.onmousedown = start; cvs.onmousemove = move; window.addEventListener('mouseup', () => down = false);
+      cvs.ontouchstart = start; cvs.ontouchmove = move; cvs.ontouchend = () => down = false;
+      holder.querySelector('.clearSig')?.addEventListener('click', () => ctx.clearRect(0, 0, cvs.width, cvs.height));
+      cvs.onclick = () => { if (cvs.draggable === false) { smallCvs = cvs; mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height); mCtx.drawImage(cvs, 0, 0, modalCanvas.width, modalCanvas.height); sigModal.style.display = 'flex'; } };
+    }
+
+    /* ===== v7 → DOM ===== */
+    function buildTableFromV7(v7, readOnly = false) {
+      const leaf = leafCols(v7.headerRows);
+      console.log('leafCols:', leaf);
+      const colgroup = '<colgroup>' + leaf.map(l => `<col style="width:${l.width || ''}%;">`).join('') + '</colgroup>';
+      const hBg = '#d9eaff', hColor = contrast(hBg);
+      const thead = v7.headerRows.map(r => '<tr>' + r.map(c =>
+        `<th${c.colspan > 1 ? ` colspan="${c.colspan}"` : ''}${c.rowspan > 1 ? ` rowspan="${c.rowspan}"` : ''}${c.en ? ` data-column="${c.en}"` : ''}>
+      ${c.text || '&nbsp;'}${c.en ? `<br><small>${c.en}</small>` : ''}</th>`).join('') + '</tr>').join('');
+
+      const rows = v7.dataRowsCfg.length, cols = leaf.length, occ = Array(rows).fill(0).map(() => Array(cols).fill(false));
+      const tb = [];
+      for (let r = 0; r < rows; r++) {
+        const bg = v7.dataRowsCfg[r].color || '#ffffff', txt = contrast(bg); let tr = `<tr style="background:${bg};color:${txt};">`;
+        for (let c = 0; c < cols; c++) {
+          if (occ[r][c]) continue;
+          const cell = v7.dataRowsCfg[r].cells[c] || {};
+          let cs = +cell.colspan || 1, rs = +cell.rowspan || 1;
+          if (c + cs > cols) cs = cols - c; if (r + rs > rows) rs = rows - r;
+          for (let rr = 0; rr < rs; rr++)for (let cc = 0; cc < cs; cc++)occ[r + rr][c + cc] = true;
+          const data = (cs === 1 && rs === 1 && leaf[c]?.en) ? ` data-column="${leaf[c].en}"` : '';
+          const inner = cell.text?.trim() ? cell.text : (cell.html || '&nbsp;');
+          const htmlText = (cell.text || '').replace(/\n/g, '<br>'); // 將換行符轉為 <br>
+          console.log(htmlText);
+          tr += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''}>${htmlText}</td>`;
+        }
+        tr += '</tr>'; tb.push(tr);
+      }
+      const tbl = document.createElement('table');
+      tbl.innerHTML = `<style>.preview th{background:${hBg};color:${hColor};}</style>${colgroup}<thead>${thead}</thead><tbody>${tb.join('')}</tbody>`;
+      tbl.className = 'preview'; tbl.id = 'mainTable';
+
+
+      /* ★ 還原 canvas 內容，再決定是否鎖定 */
+      tbl.querySelectorAll('canvas.sigCanvas').forEach(cv => {
+        const url = cv.getAttribute('data-url');
+        if (url) {
+          const img = new Image();
+          img.onload = () => { cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); };
+          img.src = url;
+        }
+      });
+
+      if (readOnly) {
+        tbl.querySelectorAll('input,textarea,canvas').forEach(el => el.style.pointerEvents = 'none');
+      } else {
+        tbl.querySelectorAll('.signature').forEach(initSignature);
+        enableDrag(tbl);
+      } return tbl;
+    }
+
+    /* === DOM → v7  (★加入簽名擷取) === */
+    function domToV7(tbl) {
+      const headerRows = JSON.parse(localStorage.getItem(ORIGIN_KEY)).headerRows;
+      const cols = leafCols(headerRows).length;
+
+      const tdToHtml = (td) => {
+        const clone = td.cloneNode(true);
+        /* checkbox */
+        clone.querySelectorAll('input[type=checkbox]').forEach(inp => {
+          inp.checked ? inp.setAttribute('checked', '') : inp.removeAttribute('checked');
+          inp.disabled = false;
+        });
+        /* textarea */
+        clone.querySelectorAll('textarea').forEach(t => { t.textContent = t.value; });
+
+        /* ★text-input 內容（新增這一段） */
+        clone.querySelectorAll('input[type=text]').forEach(inp => {
+          inp.setAttribute('value', inp.value);   // 將當前值寫回 value 屬性
+        });
+
+        clone.querySelectorAll('.del-btn').forEach(btn => btn.remove());
+
+        /* ★ 正確作法：先從原 td 抓圖，再貼到 clone 對應的 canvas */
+        const srcCanv = [...td.querySelectorAll('canvas.sigCanvas')];
+        const dstCanv = [...clone.querySelectorAll('canvas.sigCanvas')];
+        srcCanv.forEach((src, i) => {
+          const url = src.toDataURL();          // 有內容的 bitmap
+          dstCanv[i].setAttribute('data-url', url);
+        });
+
+
+        return clone.innerHTML || '&nbsp;';
+      };
+
+      const body = [...tbl.querySelectorAll('tbody tr')].map(tr => {
+        const row = { color: '', cells: [] }; let ci = 0;
+        [...tr.children].forEach(td => {
+          const cs = td.colSpan || 1, rs = td.rowSpan || 1;
+          row.cells[ci] = { text: tdToHtml(td), colspan: cs, rowspan: rs };
+          for (let i = 1; i < cs; i++)row.cells[ci + i] = { text: '', colspan: 1, rowspan: 1 };
+          ci += cs;
+        });
+        while (row.cells.length < cols) row.cells.push({ text: '', colspan: 1, rowspan: 1 });
+        return row;
+      });
+      return { headerRows, dataRowsCfg: body };
+    }
+
+    /* ===== 拖放 ===== */
+    function enableDrag(tbl) {
+      tbl.addEventListener('dragover', e => { if (e.target.tagName === 'TD') { e.preventDefault(); e.target.classList.add('drop-hover'); } });
+      tbl.addEventListener('dragleave', e => { if (e.target.tagName === 'TD') e.target.classList.remove('drop-hover'); });
+      tbl.addEventListener('drop', e => {
+        if (e.target.tagName !== 'TD') return;
+        e.preventDefault(); e.target.classList.remove('drop-hover');
+        const id = e.dataTransfer.getData('text/plain'); const src = document.getElementById(id); if (!src) return;
+        if (e.target.firstChild && !confirm('覆蓋此格？')) return;
+        const el = src.classList.contains('reusable') ? src.cloneNode(true) : src;
+        el.id = ''; el.draggable = false; el.style.cursor = 'default';
+        /* ★ 若格子內含刪除鈕，點一下就把整格內容清掉 */
+        const del = el.querySelector('.del-btn');
+        if (del) {
+          del.onclick = ev => {
+            ev.stopPropagation();
+            const td = del.closest('td');
+            if (td) td.innerHTML = '&nbsp;';  // 變回空白格
+          };
+        }
+
+
+        e.target.innerHTML = ''; e.target.appendChild(el); initSignature(el);
+      });
+    }
+    
+      document.getElementById('palette').addEventListener('dragstart', e => {
+      const it = e.target.closest('.draggable-item'); if (it) e.dataTransfer.setData('text/plain', it.id);
+    });
+
+    /* ===== 通用刪除按鈕功能 ===== */
+    function addDelBtn(div, onRemoved = null) {
+      let del = div.querySelector('.del-btn');
+      if (!del) {
+        del = document.createElement('div');
+        del.className = 'del-btn';
+        del.textContent = '✖';
+        div.prepend(del);
+      }
+      del.onclick = e => {
+        e.stopPropagation();
+        if (!confirm('確定要刪除此項目？')) return;
+
+        div.remove();
+        if (typeof onRemoved === 'function') onRemoved();
+      };
+    }
+
+    /* ===== Builder (與前版相同) ===== */
+    const builderPreview = document.getElementById('builderPreview');
+
+    document.getElementById('builderAddBtn').onclick = () => {
+      if (builderPreview.textContent === '(預覽區)') { alert('尚未設定內容'); return; }
+      const div = document.createElement('div');
+      div.className = 'draggable-item reusable';
+      div.id = 'custom_' + uid();
+      div.draggable = true;
+      div.innerHTML = builderPreview.innerHTML;
+      const del = document.createElement('div');
+      // 掛上刪除鈕，移除後順便更新存檔
+      addDelBtn(div, saveCustomPalette);
+      document.getElementById('palette-custom').appendChild(div);
+      saveCustomPalette();
+    };
+    document.getElementById('builderClearBtn').onclick = () => { document.getElementById('builderChkLabel').value = ''; document.getElementById('builderInputPH').value = ''; };
+
+    /* ===== 儲存 util ===== */
+    const saveJSON = (key, obj) => localStorage.setItem(key, JSON.stringify(obj));
+    const readJSON = (key) => { const r = localStorage.getItem(key); return r ? JSON.parse(r) : null; };
+
+    /* ===== 預覽 / 儲存 ===== */
+    /* ===== 預覽 / 儲存 ===== */
+    function preview() {
+      const live = document.querySelector('#tableWrap table');
+      if (!live) { alert('沒有表格'); return; }
+
+      /* ---------- 1. 先深拷貝 DOM ---------- */
+      const clone = live.cloneNode(true);
+
+      clone.querySelectorAll('canvas.sigCanvas')
+        .forEach(c => c.removeAttribute('data-bound'));
+
+      /* ---------- 2. 把每個 <canvas> 的位圖複製過去 ---------- */
+      const liveCanvases = [...live.querySelectorAll('canvas.sigCanvas')];
+      const cloneCanvases = [...clone.querySelectorAll('canvas.sigCanvas')];
+      liveCanvases.forEach((src, i) => {
+        const dst = cloneCanvases[i];
+        if (src && dst) {
+          dst.getContext('2d').drawImage(src, 0, 0, dst.width, dst.height);
+        }
+      });
+
+      /* ---------- 3. 預覽區顯示 ---------- */
+      outputArea.innerHTML = '';
+      outputArea.appendChild(clone);
+
+      /* 讓使用者在預覽仍可拖放 / 簽名 / 編輯文字 */
+      enableDrag(clone);
+      clone.querySelectorAll('.signature').forEach(initSignature);
+
+      /* ---------- 4. 功能按鈕 ---------- */
+      const bar = document.createElement('div');
+      bar.className = 'buttons-inline';
+      const btnTmp = document.createElement('button'); btnTmp.textContent = '暫存';
+      //const btnFin = document.createElement('button'); btnFin.textContent = '完成';
+      //bar.append(btnTmp, btnFin); outputArea.appendChild(bar);
+      bar.append(btnTmp); outputArea.appendChild(bar);
+
+      const doSave = (key, msg) => {
+        saveJSON(key, domToV7(clone));      // ← 直接把「已經帶有位圖的 clone」序列化
+        alert(msg); refreshSavedArea();
+      };
+      btnTmp.onclick = () => doSave(TMP_KEY, '已暫存！(可繼續編輯)');
+      //btnFin.onclick = () => doSave(FIN_KEY, '已存為完成版 (鎖定)');
+    }
+
+
+    /* ===== Working 區 ===== */
+    function loadWorking() {
+      const raw = localStorage.getItem(ORIGIN_KEY);
+      if (!raw) { document.getElementById('tableWrap').textContent = '(尚無資料)'; return; }
+      const tbl = buildTableFromV7(JSON.parse(raw)); enableDrag(tbl);
+      document.getElementById('tableWrap').innerHTML = ''; document.getElementById('tableWrap').appendChild(tbl);
+    }
+
+    /* ===== 暫存／完成 區 ===== */
+    function refreshSavedArea() {
+      const area=document.getElementById('savedArea'); if(!area) return; area.innerHTML = '';
+      const tmp = readJSON(TMP_KEY), fin = readJSON(FIN_KEY);
+
+      if (tmp) {
+        const wrap = document.createElement('div'); wrap.className = 'saved-block';
+        wrap.innerHTML = '<div class="saved-title">暫存版 (可編輯)</div>';
+        const tbl = buildTableFromV7(tmp);
+        //enableDrag(tbl);
+        wrap.appendChild(tbl);
+
+        tbl.querySelectorAll('canvas.sigCanvas')
+          .forEach(c => c.removeAttribute('data-bound'));   // 清舊標記
+        tbl.querySelectorAll('.signature').forEach(initSignature);   /* ★ 簽名可編輯 */
+        tbl.querySelectorAll('.del-btn').forEach(btn => btn.remove());
+
+        /* 更新暫存按鈕 */
+        const btn = document.createElement('button'); btn.textContent = '更新暫存';
+        btn.onclick = () => { saveJSON(TMP_KEY, domToV7(tbl)); alert('暫存已更新'); };
+        wrap.appendChild(btn);
+        area.appendChild(wrap);
+      }
+      if (fin) {
+        const wrap = document.createElement('div'); wrap.className = 'saved-block';
+        wrap.innerHTML = '<div class="saved-title">完成版 (唯讀)</div>';
+        const tbl = buildTableFromV7(fin, true);
+        //attachRowSelect(tbl);
+        tbl.querySelectorAll('input,textarea').forEach(el => el.disabled = true);
+        tbl.style.pointerEvents = 'none';
+        wrap.appendChild(tbl);
+        area.appendChild(wrap);
+        /* 讓 <tr> 可以被點擊 */
+        tbl.style.pointerEvents = '';           // ① 解除整表鎖定
+
+        /* ② 監聽 click 並取指定 data-column */
+        tbl.addEventListener('click', attachRowSelect(tbl));
+
+
+      }
+    }
+
+    /* ===== Buttons ===== */
+    document.getElementById('previewBtn').onclick = () => {
+  
+
+  // 接著執行原本的預覽功能
+  preview();
+  // 1. 取得 #tableWrap 中所有具有 draggable-item 和 reusable 類別的元素
+  const outputArea = document.getElementById('outputArea');
+  if (outputArea) {
+    outputArea.querySelectorAll('.draggable-item.reusable').forEach(el => {
+      el.classList.remove('draggable-item', 'reusable'); // 只移除 class，不刪除元素
+      const delBtn = el.querySelector('.del-btn');
+      if (delBtn) delBtn.remove(); // 刪除內部的 del-btn 區塊
+    });
+  }
+};
+    document.getElementById('reloadBtn').onclick = () => {
+      loadWorking();
+      refreshSavedArea();
+      initNativeDelBtns();
+      loadCustomPalette();
+    };
+    document.getElementById('clearLSBtn').onclick = () => {
+      if (confirm('確定清除所有儲存？')) { [ORIGIN_KEY, TMP_KEY, FIN_KEY].forEach(k => localStorage.removeItem(k)); location.reload(); }
+    };
+    document.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 's') { e.preventDefault(); preview(); } });
+
+
+
+    /* --- 加在 buildTableFromV7(...) 產生「完成版」之後 --- */
+    function attachRowSelect(tbl) {
+      tbl.addEventListener('click', e => {
+        const tr = e.target.closest('tr');
+        if (!tr) return;
+        tr.classList.toggle('row-selected');   // 第二次再點會移除底色
+        var result = getSelectedRowsData(tbl);  // 預先呼叫一次，確保函式存在
+        console.log('已綁定行選擇功能，點選行可切換選中狀態。');
+        console.log('選中行資料：', result);  // 初始時沒有選中行，結果為空陣列
+      });
+
+    }
+
+    function getSelectedRowsData(tbl) {
+      const rows = [...tbl.querySelectorAll('tr.row-selected')];
+      return rows.map(r => {
+        const obj = {};
+        r.querySelectorAll('td[data-column]').forEach(td => {
+          obj[td.dataset.column] = td.innerText.trim();
+        });
+        return obj;
+      });
+    }
+
+
+
+
+
+    /* ===== Palette Save / Load & Init ===== */
+    const CUSTOM_LIST_KEY = 'paletteCustom';
+    function saveCustomPalette() {
+      const items = [...document.querySelectorAll('#palette-custom .draggable-item')].map(el => el.outerHTML);
+      localStorage.setItem(CUSTOM_LIST_KEY, JSON.stringify(items));
+    }
+    function loadCustomPalette() {
+      const raw = localStorage.getItem(CUSTOM_LIST_KEY);
+      if (!raw) return;
+      JSON.parse(raw).forEach(html => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html.trim();
+        const div = tmp.firstElementChild;
+        if (!div) return;
+        div.id = 'custom_' + uid();
+        div.draggable = true;
+
+        /* 保證 del-btn 存在並重綁 */
+        // 掛上刪除鈕，移除後同步更新存檔
+        addDelBtn(div, saveCustomPalette);
+
+        document.getElementById('palette-custom').appendChild(div);
+      });
+    }
+    function initNativeDelBtns() {
+      document.querySelectorAll('#palette-native .draggable-item').forEach(div => {
+        addDelBtn(div); // 確保每個原生項目都有刪除按鈕
+      });
+    }
+
+    /* ===== Init ===== */
+    loadWorking();
+    refreshSavedArea();
+
+
+
+    /* ===== AutoInit native+custom ===== */
+    document.addEventListener('DOMContentLoaded', () => {
+      initNativeDelBtns();
+      loadCustomPalette();
+    });
+  </script>
+      <script>
+
+    /* ===== Quill Integration ===== */
+    /* ===== 自訂 Blot：Inline Checkbox & TextInput ===== */
+    const InlineEmbed = Quill.import('blots/embed');
+
+    /* ----- Checkbox (Inline) ----- */
+    class CheckboxBlot extends InlineEmbed {
+      static create(value = { label: 'OK' }) {
+        const node = super.create();
+        node.setAttribute('contenteditable', 'false');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = value.label || 'OK';
+        input.style.margin = '0 4px 0 0';
+        const text = document.createTextNode(value.label || 'OK');
+        node.appendChild(input);
+        node.appendChild(text);
+        return node;
+      }
+      static value(node) {
+        return { label: node.textContent.trim() };
+      }
+    }
+    CheckboxBlot.blotName = 'checkbox';
+    CheckboxBlot.tagName = 'span';
+    Quill.register(CheckboxBlot);
+
+    /* ----- TextInput (Inline) ----- */
+    class TextInputBlot extends InlineEmbed {
+      static create(value = { placeholder: '請輸入…', width: '150px' }) {
+        const node = super.create();
+        node.setAttribute('contenteditable', 'false');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = value.placeholder || '';
+        input.style.width = value.width || '150px';
+        node.appendChild(input);
+        return node;
+      }
+      static value(node) {
+        const inp = node.querySelector('input');
+        return {
+          placeholder: inp?.placeholder || '',
+          width: inp?.style.width || ''
+        };
+      }
+    }
+    TextInputBlot.blotName = 'textinput';
+    TextInputBlot.tagName = 'span';
+    Quill.register(TextInputBlot);
+
+    let quill;
+    function initQuillEditor() {
+      const container = document.getElementById('quillEditor');
+      if (!container) return;
+      quill = new Quill(container, {
+        theme: 'snow', placeholder: '請輸入文字或使用右側按鈕插入元件…', modules: { toolbar: '#quillToolbar' }
+      });
+      quill.on('text-change', syncQuillToPreview);
+      syncQuillToPreview();
+    }
+
+    function syncQuillToPreview() {
+      const html = quill ? quill.root.innerHTML.trim() : '';
+
+      const builderPreview = document.getElementById('builderPreview');
+      if (builderPreview) builderPreview.innerHTML = html || '(預覽區)';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initQuillEditor();
+
+      // 插入 Checkbox
+      const btnAddChk = document.getElementById('btnAddChk');
+      if (btnAddChk) {
+
+        btnAddChk.onclick = () => {
+          const labelSource = document.getElementById('builderChkLabel');
+          const label = labelSource ? labelSource.value.trim() : 'OK';
+          const index = (quill.getSelection()?.index ?? quill.getLength());
+          quill.insertEmbed(index, 'checkbox', { label });
+          quill.insertText(index + 1, ' ');
+          syncQuillToPreview();
+        };
+
+      }
+
+      // 插入 Input
+      const btnAddInput = document.getElementById('btnAddInput');
+      if (btnAddInput) {
+
+        btnAddInput.onclick = () => {
+          const phSource = document.getElementById('builderInputPH');
+          const ph = phSource ? phSource.value.trim() : '請輸入…';
+          const index = (quill.getSelection()?.index ?? quill.getLength());
+          quill.insertEmbed(index, 'textinput', { placeholder: ph, width: '150px' });
+          quill.insertText(index + 1, ' ');
+          syncQuillToPreview();
+        };
+
+      }
+
+      // 清空
+      const clearBtn = document.getElementById('builderClearBtn');
+      if (clearBtn) {
+        clearBtn.onclick = () => {
+          quill.setContents([]);
+          syncQuillToPreview();
+        };
+      }
+    });
+
+  </script>
+    </body>
+
+  </html>
