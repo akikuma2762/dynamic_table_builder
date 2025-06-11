@@ -1,459 +1,581 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>暫存 / 完成 區</title>
-<link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css" rel="stylesheet">
-<style>
-    /* --- 與前版相同的樣式 --- */
-    body {
-      font-family: "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
-      margin: 1.5rem;
-    }
-
-    #controls button {
-      margin-right: .5rem;
-      padding: 4px 10px;
-    }
-
-    #palette {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .5rem;
-      padding: .5rem;
-      border: 1px dashed #999;
-      max-width: 100%;
-    }
-
-    .draggable-item {
-      background: #fffbe6;
-      border: 1px solid #f0c36d;
-      padding: .4rem;
-      cursor: grab;
-      width: 420px;
-    }
-
-    .reusable {
-      background: #e1f5fe;
-      border-color: #03a9f4;
-      width: 220px;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 1rem;
-    }
-
-    th,
-    td {
-      border: 1px solid #999;
-      padding: .6rem;
-      min-height: 44px;
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      background: #f5f5f5;
-    }
-
-    td.drop-hover {
-      background: #c8e6c9;
-    }
-
-    #outputArea,
-    #savedArea {
-      margin-top: 2rem;
-      border: 2px dashed #aaa;
-      padding: 1rem;
-    }
-
-    .saved-block {
-      border: 1px solid #777;
-      padding: .5rem;
-      margin-top: .8rem;
-    }
-
-    .saved-title {
-      font-weight: bold;
-      margin-bottom: .4rem;
-    }
-
-    .buttons-inline>button {
-      margin-right: .5rem;
-    }
-
-    textarea {
-      width: 180px;
-      height: 60px;
-      font-family: inherit;
-    }
-
-    .draggable-item textarea {
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
-      resize: vertical;
-      overflow-wrap: break-word;
-    }
-
-    .signature {
-      display: flex;
-      flex-direction: column;
-      gap: .25rem;
-      align-items: center;
-    }
-
-    .sigCanvas {
-      border: 1px solid #666;
-      background: #fff;
-      width: 100%;
-      height: 60px;
-      touch-action: none;
-    }
-
-    .clearSig {
-      font-size: .75rem;
-    }
-
-    #sigModal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, .6);
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    #sigModal .modal-box {
-      background: #fff;
-      padding: 1rem;
-      border-radius: 6px;
-      display: flex;
-      flex-direction: column;
-      gap: .5rem;
-    }
-
-    #sigModal canvas {
-      border: 1px solid #333;
-    }
-
-    .draggable-item .del-btn {
-      text-align: end;
-      font-size: .8rem;
-      color: #f44336;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    #builderPreview {
-      border: 1px dashed #ccc;
-      padding: .5rem;
-      min-height: 40px;
-      background: #fafafa;
-    }
-
-    .row-selected {
-      background: #e3f2fd !important;
-      color: #000 !important;
-    }
-
-    table.preview {
-      text-align: center;
-    }
-
-
-    /* ----- Palette 分區樣式 ----- */
-    #palette {
-      display: flex;
-      flex-direction: column;
-      gap: .5rem;
-    }
-
-    .palette-block {
-      display: flex;
-      flex-wrap: wrap;
-      gap: .5rem;
-      padding: .5rem;
-      border: 1px dashed #999;
-    }
-
-    .palette-block.native {
-      background: #fffbe6;
-      border-color: #f0c36d;
-    }
-
-    .palette-block.custom {
-      background: #e8fbe9;
-      border-color: #4caf50;
-    }
-  </style>
-</head>
-<body>
-<h3>暫存 / 完成 區</h3>
-<div id="savedArea"></div>
-<button id="reloadBtn">重新讀取</button>
-
-<!-- -------- 簽名 Modal -------- -->
-      <div id="sigModal">
-        <div class="modal-box">
-          <canvas id="modalCanvas" width="400" height="200"></canvas>
-          <div><button id="modalClear">清除</button><button
-              id="modalSave">儲存</button><button id="modalCancel">取消</button>
-          </div>
-
-<script>
-const TMP_KEY='saveTableJSON_temp',FIN_KEY='saveTableJSON_final',ORIGIN_KEY='dynamicTableJSON';
-function readJSON(k){const r=localStorage.getItem(k);return r?JSON.parse(r):null;}
-
-const contrast = h => { const r = parseInt(h.substr(1, 2), 16), g = parseInt(h.substr(3, 2), 16), b = parseInt(h.substr(5, 2), 16); return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff'; };
-
-const uid = () => `id_${Math.random().toString(36).slice(2, 10)}`;
-
-/* ===== leaf ===== */
-    function leafCols(hRows) {
-      const R = hRows.length, g = [];
-      for (let r = 0; r < R; r++) {
-        g[r] ??= []; let c = 0;
-        hRows[r].forEach(cell => {
-          while (g[r][c]) c++;
-          const cs = +cell.colspan || 1, rs = +cell.rowspan || 1;
-          for (let rr = 0; rr < rs; rr++)for (let cc = 0; cc < cs; cc++) { g[r + rr] ??= []; g[r + rr][c + cc] = cell; }
-          c++;
-        });
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>暫存 / 完成 區</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* --- 與前版相同的樣式 --- */
+      body {
+        font-family: "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+        margin: 1.5rem;
       }
-      return g[R - 1] || [];
-    }
 
-function enableDrag(tbl) {
-      tbl.addEventListener('dragover', e => { if (e.target.tagName === 'TD') { e.preventDefault(); e.target.classList.add('drop-hover'); } });
-      tbl.addEventListener('dragleave', e => { if (e.target.tagName === 'TD') e.target.classList.remove('drop-hover'); });
-      tbl.addEventListener('drop', e => {
-        if (e.target.tagName !== 'TD') return;
-        e.preventDefault(); e.target.classList.remove('drop-hover');
-        const id = e.dataTransfer.getData('text/plain'); const src = document.getElementById(id); if (!src) return;
-        if (e.target.firstChild && !confirm('覆蓋此格？')) return;
-        const el = src.classList.contains('reusable') ? src.cloneNode(true) : src;
-        el.id = ''; el.draggable = false; el.style.cursor = 'default';
-        /* ★ 若格子內含刪除鈕，點一下就把整格內容清掉 */
-        const del = el.querySelector('.del-btn');
-        if (del) {
-          del.onclick = ev => {
-            ev.stopPropagation();
-            const td = del.closest('td');
-            if (td) td.innerHTML = '&nbsp;';  // 變回空白格
-          };
-        }
-
-
-        e.target.innerHTML = ''; e.target.appendChild(el); initSignature(el);
-      });
-    }
-
-function initSignature(holder) {
-      const cvs = holder.querySelector('.sigCanvas'); if (!cvs || cvs.dataset.bound) return;
-      cvs.dataset.bound = 1;
-      const ctx = cvs.getContext('2d'); ctx.lineWidth = 2; ctx.lineCap = 'round';
-      let down = false, prev = null;
-      const pos = e => { const r = cvs.getBoundingClientRect(); return { x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left, y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top }; };
-      const start = e => { down = true; prev = pos(e); };
-      const move = e => { if (!down) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(p.x, p.y); ctx.stroke(); prev = p; e.preventDefault(); };
-      cvs.onmousedown = start; cvs.onmousemove = move; window.addEventListener('mouseup', () => down = false);
-      cvs.ontouchstart = start; cvs.ontouchmove = move; cvs.ontouchend = () => down = false;
-      holder.querySelector('.clearSig')?.addEventListener('click', () => ctx.clearRect(0, 0, cvs.width, cvs.height));
-      cvs.onclick = () => { if (cvs.draggable === false) { smallCvs = cvs; mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height); mCtx.drawImage(cvs, 0, 0, modalCanvas.width, modalCanvas.height); sigModal.style.display = 'flex'; } };
-    }
-
-  function buildTableFromV7(v7, readOnly = false) {
-      const leaf = leafCols(v7.headerRows);
-      console.log('leafCols:', leaf);
-      const colgroup = '<colgroup>' + leaf.map(l => `<col style="width:${l.width || ''}%;">`).join('') + '</colgroup>';
-      const hBg = '#d9eaff', hColor = contrast(hBg);
-      const thead = v7.headerRows.map(r => '<tr>' + r.map(c =>
-        `<th${c.colspan > 1 ? ` colspan="${c.colspan}"` : ''}${c.rowspan > 1 ? ` rowspan="${c.rowspan}"` : ''}${c.en ? ` data-column="${c.en}"` : ''}>
-      ${c.text || '&nbsp;'}${c.en ? `<br><small>${c.en}</small>` : ''}</th>`).join('') + '</tr>').join('');
-
-      const rows = v7.dataRowsCfg.length, cols = leaf.length, occ = Array(rows).fill(0).map(() => Array(cols).fill(false));
-      const tb = [];
-      for (let r = 0; r < rows; r++) {
-        const bg = v7.dataRowsCfg[r].color || '#ffffff', txt = contrast(bg); let tr = `<tr style="background:${bg};color:${txt};">`;
-        for (let c = 0; c < cols; c++) {
-          if (occ[r][c]) continue;
-          const cell = v7.dataRowsCfg[r].cells[c] || {};
-          let cs = +cell.colspan || 1, rs = +cell.rowspan || 1;
-          if (c + cs > cols) cs = cols - c; if (r + rs > rows) rs = rows - r;
-          for (let rr = 0; rr < rs; rr++)for (let cc = 0; cc < cs; cc++)occ[r + rr][c + cc] = true;
-          const data = (cs === 1 && rs === 1 && leaf[c]?.en) ? ` data-column="${leaf[c].en}"` : '';
-          const inner = cell.text?.trim() ? cell.text : (cell.html || '&nbsp;');
-          const htmlText = (cell.text || '').replace(/\n/g, '<br>'); // 將換行符轉為 <br>
-          console.log(htmlText);
-          tr += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''}>${htmlText}</td>`;
-        }
-        tr += '</tr>'; tb.push(tr);
+      #controls button {
+        margin-right: 0.5rem;
+        padding: 4px 10px;
       }
-      const tbl = document.createElement('table');
-      tbl.innerHTML = `<style>.preview th{background:${hBg};color:${hColor};}</style>${colgroup}<thead>${thead}</thead><tbody>${tb.join('')}</tbody>`;
-      tbl.className = 'preview'; tbl.id = 'mainTable';
 
-
-      /* ★ 還原 canvas 內容，再決定是否鎖定 */
-      tbl.querySelectorAll('canvas.sigCanvas').forEach(cv => {
-        const url = cv.getAttribute('data-url');
-        if (url) {
-          const img = new Image();
-          img.onload = () => { cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); };
-          img.src = url;
-        }
-      });
-
-      if (readOnly) {
-        tbl.querySelectorAll('input,textarea,canvas').forEach(el => el.style.pointerEvents = 'none');
-      } else {
-        tbl.querySelectorAll('.signature').forEach(initSignature);
-        enableDrag(tbl);
-      } return tbl;
-    }
-
-function attachRowSelect(tbl) {
-      tbl.addEventListener('click', e => {
-        const tr = e.target.closest('tr');
-        if (!tr) return;
-        tr.classList.toggle('row-selected');   // 第二次再點會移除底色
-        var result = getSelectedRowsData(tbl);  // 預先呼叫一次，確保函式存在
-        console.log('已綁定行選擇功能，點選行可切換選中狀態。');
-        console.log('選中行資料：', result);  // 初始時沒有選中行，結果為空陣列
-      });
-
-    }
-
-function getSelectedRowsData(tbl) {
-      const rows = [...tbl.querySelectorAll('tr.row-selected')];
-      return rows.map(r => {
-        const obj = {};
-        r.querySelectorAll('td[data-column]').forEach(td => {
-          obj[td.dataset.column] = td.innerText.trim();
-        });
-        return obj;
-      });
-    }
-
-
-function refreshSavedArea(){
- const area=document.getElementById('savedArea');
- if(!area) return;
- area.innerHTML='';
- const tmp=readJSON(TMP_KEY), fin=readJSON(FIN_KEY);
- if(tmp) {
-   const wrap=document.createElement('div'); wrap.className='saved-block';
-   wrap.innerHTML='<div class="saved-title">暫存版 (可編輯)</div>';
-   const tbl=buildTableFromV7(tmp,false);
-   wrap.appendChild(tbl);
-   tbl.querySelectorAll('.signature').forEach(initSignature);
-
-
- // 🔹新增按鈕列
-  const btnGroup = document.createElement('div');
-  btnGroup.className = 'buttons-inline';
-  const btnSave = document.createElement('button');
-  btnSave.textContent = '更新暫存';
-  const btnFinalize = document.createElement('button');
-  btnFinalize.textContent = '完成';
-
-  // 🔹事件：更新暫存
-  btnSave.onclick = () => {
-    localStorage.setItem(TMP_KEY, JSON.stringify(domToV7(tbl)));
-    alert('暫存已更新');
-  };
-
-  // 🔹事件：轉存為完成版
-  btnFinalize.onclick = () => {
-    localStorage.setItem(FIN_KEY, JSON.stringify(domToV7(tbl)));
-    alert('已轉存為完成版');
-    refreshSavedArea();
-  };
-
-  btnGroup.appendChild(btnSave);
-  btnGroup.appendChild(btnFinalize);
-  wrap.appendChild(btnGroup);
-
-   area.appendChild(wrap);
- }
-if (fin) {
-        const wrap = document.createElement('div'); wrap.className = 'saved-block';
-        wrap.innerHTML = '<div class="saved-title">完成版 (唯讀)</div>';
-        const tbl = buildTableFromV7(fin, true);
-        //attachRowSelect(tbl);
-        tbl.querySelectorAll('input,textarea').forEach(el => el.disabled = true);
-        tbl.style.pointerEvents = 'none';
-        wrap.appendChild(tbl);
-        area.appendChild(wrap);
-        /* 讓 <tr> 可以被點擊 */
-        tbl.style.pointerEvents = '';           // ① 解除整表鎖定
-
-        /* ② 監聽 click 並取指定 data-column */
-        tbl.addEventListener('click', attachRowSelect(tbl));
-
-
+      #palette {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border: 1px dashed #999;
+        max-width: 100%;
       }
-}
 
-function domToV7(tbl) {
-      const headerRows = JSON.parse(localStorage.getItem(ORIGIN_KEY)).headerRows;
-      const cols = leafCols(headerRows).length;
+      .draggable-item {
+        background: #fffbe6;
+        border: 1px solid #f0c36d;
+        padding: 0.4rem;
+        cursor: grab;
+        width: 420px;
+      }
 
-      const tdToHtml = (td) => {
-        const clone = td.cloneNode(true);
-        /* checkbox */
-        clone.querySelectorAll('input[type=checkbox]').forEach(inp => {
-          inp.checked ? inp.setAttribute('checked', '') : inp.removeAttribute('checked');
-          inp.disabled = false;
-        });
-        /* textarea */
-        clone.querySelectorAll('textarea').forEach(t => { t.textContent = t.value; });
+      .reusable {
+        background: #e1f5fe;
+        border-color: #03a9f4;
+        width: 220px;
+      }
 
-        /* ★text-input 內容（新增這一段） */
-        clone.querySelectorAll('input[type=text]').forEach(inp => {
-          inp.setAttribute('value', inp.value);   // 將當前值寫回 value 屬性
-        });
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 1rem;
+      }
 
-        clone.querySelectorAll('.del-btn').forEach(btn => btn.remove());
+      th,
+      td {
+        border: 1px solid #999;
+        padding: 0.6rem;
+        min-height: 44px;
+        text-align: left;
+        vertical-align: top;
+      }
 
-        /* ★ 正確作法：先從原 td 抓圖，再貼到 clone 對應的 canvas */
-        const srcCanv = [...td.querySelectorAll('canvas.sigCanvas')];
-        const dstCanv = [...clone.querySelectorAll('canvas.sigCanvas')];
-        srcCanv.forEach((src, i) => {
-          const url = src.toDataURL();          // 有內容的 bitmap
-          dstCanv[i].setAttribute('data-url', url);
-        });
+      th {
+        background: #f5f5f5;
+      }
 
+      td.drop-hover {
+        background: #c8e6c9;
+      }
 
-        return clone.innerHTML || '&nbsp;';
+      #outputArea,
+      #savedArea {
+        margin-top: 2rem;
+        border: 2px dashed #aaa;
+        padding: 1rem;
+      }
+
+      .saved-block {
+        border: 1px solid #777;
+        padding: 0.5rem;
+        margin-top: 0.8rem;
+      }
+
+      .saved-title {
+        font-weight: bold;
+        margin-bottom: 0.4rem;
+      }
+
+      .buttons-inline > button {
+        margin-right: 0.5rem;
+      }
+
+      textarea {
+        width: 180px;
+        height: 60px;
+        font-family: inherit;
+      }
+
+      .draggable-item textarea {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        overflow-wrap: break-word;
+      }
+
+      .signature {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        align-items: center;
+      }
+
+      .sigCanvas {
+        border: 1px solid #666;
+        background: #fff;
+        width: 100%;
+        height: 60px;
+        touch-action: none;
+      }
+
+      .clearSig {
+        font-size: 0.75rem;
+      }
+
+      #sigModal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      #sigModal .modal-box {
+        background: #fff;
+        padding: 1rem;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      #sigModal canvas {
+        border: 1px solid #333;
+      }
+
+      .draggable-item .del-btn {
+        text-align: end;
+        font-size: 0.8rem;
+        color: #f44336;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      #builderPreview {
+        border: 1px dashed #ccc;
+        padding: 0.5rem;
+        min-height: 40px;
+        background: #fafafa;
+      }
+
+      .row-selected {
+        background: #e3f2fd !important;
+        color: #000 !important;
+      }
+
+      table.preview {
+        text-align: center;
+      }
+
+      /* ----- Palette 分區樣式 ----- */
+      #palette {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .palette-block {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border: 1px dashed #999;
+      }
+
+      .palette-block.native {
+        background: #fffbe6;
+        border-color: #f0c36d;
+      }
+
+      .palette-block.custom {
+        background: #e8fbe9;
+        border-color: #4caf50;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>暫存 / 完成 區</h3>
+    <div id="savedArea"></div>
+    <button id="reloadBtn">重新讀取</button>
+
+    <!-- -------- 簽名 Modal -------- -->
+    <div id="sigModal">
+      <div class="modal-box">
+        <canvas id="modalCanvas" width="400" height="200"></canvas>
+        <div>
+          <button id="modalClear">清除</button
+          ><button id="modalSave">儲存</button
+          ><button id="modalCancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const TMP_KEY = "saveTableJSON_temp",
+        FIN_KEY = "saveTableJSON_final",
+        ORIGIN_KEY = "dynamicTableJSON";
+      function readJSON(k) {
+        const r = localStorage.getItem(k);
+        return r ? JSON.parse(r) : null;
+      }
+
+      const contrast = (h) => {
+        const r = parseInt(h.substr(1, 2), 16),
+          g = parseInt(h.substr(3, 2), 16),
+          b = parseInt(h.substr(5, 2), 16);
+        return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? "#000" : "#fff";
       };
 
-      const body = [...tbl.querySelectorAll('tbody tr')].map(tr => {
-        const row = { color: '', cells: [] }; let ci = 0;
-        [...tr.children].forEach(td => {
-          const cs = td.colSpan || 1, rs = td.rowSpan || 1;
-          row.cells[ci] = { text: tdToHtml(td), colspan: cs, rowspan: rs };
-          for (let i = 1; i < cs; i++)row.cells[ci + i] = { text: '', colspan: 1, rowspan: 1 };
-          ci += cs;
+      const uid = () => `id_${Math.random().toString(36).slice(2, 10)}`;
+
+      /* ===== leaf ===== */
+      function leafCols(hRows) {
+        const R = hRows.length,
+          g = [];
+        for (let r = 0; r < R; r++) {
+          g[r] ??= [];
+          let c = 0;
+          hRows[r].forEach((cell) => {
+            while (g[r][c]) c++;
+            const cs = +cell.colspan || 1,
+              rs = +cell.rowspan || 1;
+            for (let rr = 0; rr < rs; rr++)
+              for (let cc = 0; cc < cs; cc++) {
+                g[r + rr] ??= [];
+                g[r + rr][c + cc] = cell;
+              }
+            c++;
+          });
+        }
+        return g[R - 1] || [];
+      }
+
+      function enableDrag(tbl) {
+        tbl.addEventListener("dragover", (e) => {
+          if (e.target.tagName === "TD") {
+            e.preventDefault();
+            e.target.classList.add("drop-hover");
+          }
         });
-        while (row.cells.length < cols) row.cells.push({ text: '', colspan: 1, rowspan: 1 });
-        return row;
-      });
-      return { headerRows, dataRowsCfg: body };
-    }
+        tbl.addEventListener("dragleave", (e) => {
+          if (e.target.tagName === "TD")
+            e.target.classList.remove("drop-hover");
+        });
+        tbl.addEventListener("drop", (e) => {
+          if (e.target.tagName !== "TD") return;
+          e.preventDefault();
+          e.target.classList.remove("drop-hover");
+          const id = e.dataTransfer.getData("text/plain");
+          const src = document.getElementById(id);
+          if (!src) return;
+          if (e.target.firstChild && !confirm("覆蓋此格？")) return;
+          const el = src.classList.contains("reusable")
+            ? src.cloneNode(true)
+            : src;
+          el.id = "";
+          el.draggable = false;
+          el.style.cursor = "default";
+          /* ★ 若格子內含刪除鈕，點一下就把整格內容清掉 */
+          const del = el.querySelector(".del-btn");
+          if (del) {
+            del.onclick = (ev) => {
+              ev.stopPropagation();
+              const td = del.closest("td");
+              if (td) td.innerHTML = "&nbsp;"; // 變回空白格
+            };
+          }
 
+          e.target.innerHTML = "";
+          e.target.appendChild(el);
+          initSignature(el);
+        });
+      }
 
+      function initSignature(holder) {
+        const cvs = holder.querySelector(".sigCanvas");
+        if (!cvs || cvs.dataset.bound) return;
+        cvs.dataset.bound = 1;
+        const ctx = cvs.getContext("2d");
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        let down = false,
+          prev = null;
+        const pos = (e) => {
+          const r = cvs.getBoundingClientRect();
+          return {
+            x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
+            y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top,
+          };
+        };
+        const start = (e) => {
+          down = true;
+          prev = pos(e);
+        };
+        const move = (e) => {
+          if (!down) return;
+          const p = pos(e);
+          ctx.beginPath();
+          ctx.moveTo(prev.x, prev.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          prev = p;
+          e.preventDefault();
+        };
+        cvs.onmousedown = start;
+        cvs.onmousemove = move;
+        window.addEventListener("mouseup", () => (down = false));
+        cvs.ontouchstart = start;
+        cvs.ontouchmove = move;
+        cvs.ontouchend = () => (down = false);
+        holder
+          .querySelector(".clearSig")
+          ?.addEventListener("click", () =>
+            ctx.clearRect(0, 0, cvs.width, cvs.height)
+          );
+        cvs.onclick = () => {
+          if (cvs.draggable === false) {
+            smallCvs = cvs;
+            mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+            mCtx.drawImage(cvs, 0, 0, modalCanvas.width, modalCanvas.height);
+            sigModal.style.display = "flex";
+          }
+        };
+      }
 
-document.getElementById('reloadBtn').onclick=refreshSavedArea;
-refreshSavedArea();
-</script>
-</body>
+      function buildTableFromV7(v7, readOnly = false) {
+        const leaf = leafCols(v7.headerRows);
+        console.log("leafCols:", leaf);
+        const colgroup =
+          "<colgroup>" +
+          leaf.map((l) => `<col style="width:${l.width || ""}%;">`).join("") +
+          "</colgroup>";
+        const hBg = "#d9eaff",
+          hColor = contrast(hBg);
+        const thead = v7.headerRows
+          .map(
+            (r) =>
+              "<tr>" +
+              r
+                .map(
+                  (c) =>
+                    `<th${c.colspan > 1 ? ` colspan="${c.colspan}"` : ""}${
+                      c.rowspan > 1 ? ` rowspan="${c.rowspan}"` : ""
+                    }${c.en ? ` data-column="${c.en}"` : ""}>
+      ${c.text || "&nbsp;"}${c.en ? `<br><small>${c.en}</small>` : ""}</th>`
+                )
+                .join("") +
+              "</tr>"
+          )
+          .join("");
+
+        const rows = v7.dataRowsCfg.length,
+          cols = leaf.length,
+          occ = Array(rows)
+            .fill(0)
+            .map(() => Array(cols).fill(false));
+        const tb = [];
+        for (let r = 0; r < rows; r++) {
+          const bg = v7.dataRowsCfg[r].color || "#ffffff",
+            txt = contrast(bg);
+          let tr = `<tr style="background:${bg};color:${txt};">`;
+          for (let c = 0; c < cols; c++) {
+            if (occ[r][c]) continue;
+            const cell = v7.dataRowsCfg[r].cells[c] || {};
+            let cs = +cell.colspan || 1,
+              rs = +cell.rowspan || 1;
+            if (c + cs > cols) cs = cols - c;
+            if (r + rs > rows) rs = rows - r;
+            for (let rr = 0; rr < rs; rr++)
+              for (let cc = 0; cc < cs; cc++) occ[r + rr][c + cc] = true;
+            const data =
+              cs === 1 && rs === 1 && leaf[c]?.en
+                ? ` data-column="${leaf[c].en}"`
+                : "";
+            const inner = cell.text?.trim() ? cell.text : cell.html || "&nbsp;";
+            const htmlText = (cell.text || "").replace(/\n/g, "<br>"); // 將換行符轉為 <br>
+            console.log(htmlText);
+            tr += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ""}${
+              rs > 1 ? ` rowspan="${rs}"` : ""
+            }>${htmlText}</td>`;
+          }
+          tr += "</tr>";
+          tb.push(tr);
+        }
+        const tbl = document.createElement("table");
+        tbl.innerHTML = `<style>.preview th{background:${hBg};color:${hColor};}</style>${colgroup}<thead>${thead}</thead><tbody>${tb.join(
+          ""
+        )}</tbody>`;
+        tbl.className = "preview";
+        tbl.id = "mainTable";
+
+        /* ★ 還原 canvas 內容，再決定是否鎖定 */
+        tbl.querySelectorAll("canvas.sigCanvas").forEach((cv) => {
+          const url = cv.getAttribute("data-url");
+          if (url) {
+            const img = new Image();
+            img.onload = () => {
+              cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+            };
+            img.src = url;
+          }
+        });
+
+        if (readOnly) {
+          tbl
+            .querySelectorAll("input,textarea,canvas")
+            .forEach((el) => (el.style.pointerEvents = "none"));
+        } else {
+          tbl.querySelectorAll(".signature").forEach(initSignature);
+          enableDrag(tbl);
+        }
+        return tbl;
+      }
+
+      function attachRowSelect(tbl) {
+        tbl.addEventListener("click", (e) => {
+          const tr = e.target.closest("tr");
+          if (!tr) return;
+          tr.classList.toggle("row-selected"); // 第二次再點會移除底色
+          var result = getSelectedRowsData(tbl); // 預先呼叫一次，確保函式存在
+          console.log("已綁定行選擇功能，點選行可切換選中狀態。");
+          console.log("選中行資料：", result); // 初始時沒有選中行，結果為空陣列
+        });
+      }
+
+      function getSelectedRowsData(tbl) {
+        const rows = [...tbl.querySelectorAll("tr.row-selected")];
+        return rows.map((r) => {
+          const obj = {};
+          r.querySelectorAll("td[data-column]").forEach((td) => {
+            obj[td.dataset.column] = td.innerText.trim();
+          });
+          return obj;
+        });
+      }
+
+      function refreshSavedArea() {
+        const area = document.getElementById("savedArea");
+        if (!area) return;
+        area.innerHTML = "";
+        const tmp = readJSON(TMP_KEY),
+          fin = readJSON(FIN_KEY);
+        if (tmp) {
+          const wrap = document.createElement("div");
+          wrap.className = "saved-block";
+          wrap.innerHTML = '<div class="saved-title">暫存版 (可編輯)</div>';
+          const tbl = buildTableFromV7(tmp, false);
+          wrap.appendChild(tbl);
+          tbl.querySelectorAll(".signature").forEach(initSignature);
+
+          // 🔹新增按鈕列
+          const btnGroup = document.createElement("div");
+          btnGroup.className = "buttons-inline";
+          const btnSave = document.createElement("button");
+          btnSave.textContent = "更新暫存";
+          const btnFinalize = document.createElement("button");
+          btnFinalize.textContent = "完成";
+
+          // 🔹事件：更新暫存
+          btnSave.onclick = () => {
+            localStorage.setItem(TMP_KEY, JSON.stringify(domToV7(tbl)));
+            alert("暫存已更新");
+          };
+
+          // 🔹事件：轉存為完成版
+          btnFinalize.onclick = () => {
+            localStorage.setItem(FIN_KEY, JSON.stringify(domToV7(tbl)));
+            alert("已轉存為完成版");
+            refreshSavedArea();
+          };
+
+          btnGroup.appendChild(btnSave);
+          btnGroup.appendChild(btnFinalize);
+          wrap.appendChild(btnGroup);
+
+          area.appendChild(wrap);
+        }
+        if (fin) {
+          const wrap = document.createElement("div");
+          wrap.className = "saved-block";
+          wrap.innerHTML = '<div class="saved-title">完成版 (唯讀)</div>';
+          const tbl = buildTableFromV7(fin, true);
+          //attachRowSelect(tbl);
+          tbl
+            .querySelectorAll("input,textarea")
+            .forEach((el) => (el.disabled = true));
+          tbl.style.pointerEvents = "none";
+          wrap.appendChild(tbl);
+          area.appendChild(wrap);
+          /* 讓 <tr> 可以被點擊 */
+          tbl.style.pointerEvents = ""; // ① 解除整表鎖定
+
+          /* ② 監聽 click 並取指定 data-column */
+          tbl.addEventListener("click", attachRowSelect(tbl));
+        }
+      }
+
+      function domToV7(tbl) {
+        const headerRows = JSON.parse(
+          localStorage.getItem(ORIGIN_KEY)
+        ).headerRows;
+        const cols = leafCols(headerRows).length;
+
+        const tdToHtml = (td) => {
+          const clone = td.cloneNode(true);
+          /* checkbox */
+          clone.querySelectorAll("input[type=checkbox]").forEach((inp) => {
+            inp.checked
+              ? inp.setAttribute("checked", "")
+              : inp.removeAttribute("checked");
+            inp.disabled = false;
+          });
+          /* textarea */
+          clone.querySelectorAll("textarea").forEach((t) => {
+            t.textContent = t.value;
+          });
+
+          /* ★text-input 內容（新增這一段） */
+          clone.querySelectorAll("input[type=text]").forEach((inp) => {
+            inp.setAttribute("value", inp.value); // 將當前值寫回 value 屬性
+          });
+
+          clone.querySelectorAll(".del-btn").forEach((btn) => btn.remove());
+
+          /* ★ 正確作法：先從原 td 抓圖，再貼到 clone 對應的 canvas */
+          const srcCanv = [...td.querySelectorAll("canvas.sigCanvas")];
+          const dstCanv = [...clone.querySelectorAll("canvas.sigCanvas")];
+          srcCanv.forEach((src, i) => {
+            const url = src.toDataURL(); // 有內容的 bitmap
+            dstCanv[i].setAttribute("data-url", url);
+          });
+
+          return clone.innerHTML || "&nbsp;";
+        };
+
+        const body = [...tbl.querySelectorAll("tbody tr")].map((tr) => {
+          const row = { color: "", cells: [] };
+          let ci = 0;
+          [...tr.children].forEach((td) => {
+            const cs = td.colSpan || 1,
+              rs = td.rowSpan || 1;
+            row.cells[ci] = { text: tdToHtml(td), colspan: cs, rowspan: rs };
+            for (let i = 1; i < cs; i++)
+              row.cells[ci + i] = { text: "", colspan: 1, rowspan: 1 };
+            ci += cs;
+          });
+          while (row.cells.length < cols)
+            row.cells.push({ text: "", colspan: 1, rowspan: 1 });
+          return row;
+        });
+        return { headerRows, dataRowsCfg: body };
+      }
+
+      document.getElementById("reloadBtn").onclick = refreshSavedArea;
+      refreshSavedArea();
+    </script>
+  </body>
 </html>
