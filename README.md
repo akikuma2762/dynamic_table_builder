@@ -36,6 +36,8 @@
 - 讀取 `dynamicTableMulti`，針對每份表格分別產生 palette、拖放、簽名、自訂元件、暫存/完成、行選取等互動功能。
 - 暫存/完成資料分別存於 `saveTableJSON_multi_temp`、`saveTableJSON_multi_final`（陣列型態，每份表格一份）。
 - 支援 palette 自訂、Quill 編輯器、拖放元件進表格、簽名互動等，與單表格版功能一致但多表格分離。
+- 每份表格的 palette、builder、table、output、savedArea 皆獨立，資料結構分離，互不干擾。
+- 適合需要同時設計、預覽、管理多份檢查表的場景。
 
 ### 6. `inspection_form_saved_area_multi.html`
 - 功能：多表格的「暫存/完成區」。
