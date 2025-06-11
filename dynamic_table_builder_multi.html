@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>動態欄位表格產生器 v7-多表格版</title>
+  <style>
+    /* 原有樣式保留 */
+    body{font-family:Arial,'Noto Sans TC',sans-serif;margin:24px;line-height:1.5;}
+    h1{margin-bottom:16px;}
+    fieldset{border:1px solid #ccc;padding:12px;margin-bottom:16px;border-radius:6px;}
+    legend{padding:0 6px;font-weight:600;}
+    label{display:inline-block;margin-right:8px;margin-bottom:4px;}
+    input[type="number"]{width:60px;}
+    textarea{max-width:100%;max-height:100px;min-height:100px;width:100%;height:100px;resize:none;}
+    button{padding:4px 10px;margin:4px 4px;}
+    table.preview{border-collapse:separate;border-spacing:0;width:100%;}
+    table.preview th,table.preview td{border-top:1px solid #000;border-left:1px solid #000;padding:4px 6px;word-wrap:break-word;}
+    table.preview th:last-child,table.preview td:last-child{border-right:1px solid #000;}
+    table.preview tbody tr:last-child td{border-bottom:1px solid #000;}
+    table.preview thead tr:first-child th:first-child{border-top-left-radius:8px;}
+    table.preview thead tr:first-child th:last-child{border-top-right-radius:8px;}
+    table.preview tbody tr:last-child td:first-child{border-bottom-left-radius:8px;}
+    table.preview tbody tr:last-child td:last-child{border-bottom-right-radius:8px;}
+    .row-config{margin:8px 0;padding:8px;border:1px dashed #aaa;border-radius:4px;}
+    .cell-config{display:flex;flex-direction:column;padding:8px;border:1px solid #ccc;border-radius:6px;background-color:#f9f9f9;}
+    .cell-config input[type="text"]{width:110px;}
+    .cells-wrapper{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:6px;align-items:start;}
+    .title{font-size:14px;font-weight:bold;color:#333;background:#e0eaff;padding:4px 8px;border-left:4px solid #3a78c3;border-radius:4px 0 0 4px;margin-bottom:4px;display:inline-block;}
+    .remove-button{background-color:#dc3545;color:white;border:none;border-radius:4px;padding:8px 16px;cursor:pointer;}
+    .row-main-title{cursor:pointer;background-color:#e0eaff;font-weight:bold;padding:6px;margin:6px 0;}
+    .cell-config .body{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid #ddd;border-radius:4px;background-color:#f9f9f9;transition:max-height 0.3s ease;}
+    .cell-config.collapsed .body{display:none;}
+    .cell-config .cell-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:4px 0;border-bottom:1px solid #ddd;margin-bottom:4px;}
+    .cell-config .cell-header span{font-weight:bold;font-size:14px;}
+    .cell-config .cell-header .collapse-btn{background:transparent;border:none;font-size:16px;line-height:1;cursor:pointer;}
+    .preview.merged{margin-top:-1px;}
+  </style>
+  <script>
+    function contrast(h) {
+      const r = parseInt(h.substr(1,2),16),
+            g = parseInt(h.substr(3,2),16),
+            b = parseInt(h.substr(5,2),16);
+      return (r*299 + g*587 + b*114)/1000 >= 128 ? '#000' : '#fff';
+    }
+    let tableConfigs = [];
+    function init() {
+      document.getElementById('numTables').addEventListener('input', buildTableConfigs);
+      document.getElementById('mergeTables').addEventListener('change', buildTableConfigs);
+      document.getElementById('generateBtn').addEventListener('click', generateTables);
+      document.getElementById('saveBtn').addEventListener('click', saveToLocal);
+      document.getElementById('loadBtn').addEventListener('click', loadFromLocal);
+      buildTableConfigs();
+    }
+    function buildTableConfigs() {
+      const count = parseInt(document.getElementById('numTables').value,10) || 1;
+      while(tableConfigs.length < count) tableConfigs.push({headerRows:[], dataRowsCfg:[]});
+      tableConfigs.length = count;
+      const container = document.getElementById('tablesConfig');
+      container.innerHTML = '';
+      tableConfigs.forEach((cfg,idx) => {
+        const html = `
+<div class="table-config" id="table-config-${idx}">
+  <h2>表格 ${idx+1} 設定</h2>
+  <fieldset><legend>表頭設定</legend>
+    <label>表頭列數
+      <select class="numHeaderRows" data-idx="${idx}">
+        <option value="1">1</option>
+        <option value="2" selected>2</option>
+        <option value="3">3</option>
+      </select>
+    </label>
+    <div class="headerRows" id="headerRows-${idx}"></div>
+  </fieldset>
+  <fieldset><legend>資料列設定</legend>
+    <label>資料列數 <input type="number" class="dataRows" data-idx="${idx}" value="3" min="1"></label>
+  </fieldset>
+  <fieldset><legend>色彩設定</legend>
+    <label>表頭背景色 <input type="color" class="headerBg" data-idx="${idx}" value="#d9eaff"></label>
+    <label>預設資料列背景色 <input type="color" class="dataBg" data-idx="${idx}" value="#ffffff"></label>
+  </fieldset>
+  <fieldset><legend>資料列詳細設定（可調 colspan/rowspan / 背景色）</legend>
+    <small>※ 需先建立表頭後才能設定。</small>
+    <div class="dataRowsDetail" id="dataRowsDetail-${idx}"></div>
+  </fieldset>
+</div>`;
+        container.insertAdjacentHTML('beforeend', html);
+        document.querySelector(`.numHeaderRows[data-idx="${idx}"]`).addEventListener('change', ()=>buildHeaderRows(idx));
+        document.querySelector(`.dataRows[data-idx="${idx}"]`).addEventListener('input', ()=>buildDataRowsUI(idx));
+        buildHeaderRows(idx);
+      });
+      document.getElementById('mergeOption').style.display = (count>1 ? 'block' : 'none');
+    }
+    function buildHeaderRows(t) {
+      const cfg = tableConfigs[t];
+      const select = document.querySelector(`.numHeaderRows[data-idx="${t}"]`);
+      const rows = parseInt(select.value,10);
+      while(cfg.headerRows.length < rows) cfg.headerRows.push([]);
+      cfg.headerRows.length = rows;
+      const wrap = document.getElementById(`headerRows-${t}`);
+      wrap.innerHTML = '';
+      cfg.headerRows.forEach((_,r) => {
+        const div = document.createElement('div');
+        div.className = 'row-config';
+        div.innerHTML = `<strong>第 ${r+1} 列</strong>
+<button type="button" onclick="addHeaderCell(${t},${r})">新增儲存格</button>
+<div id="h-${t}-${r}" class="cells-wrapper"></div>`;
+        wrap.appendChild(div);
+        renderHeaderCells(t,r);
+      });
+      buildDataRowsUI(t);
+    }
+    function addHeaderCell(t,r) {
+      tableConfigs[t].headerRows[r].push({text:'',en:'',colspan:1,rowspan:1,width:''});
+      renderHeaderCells(t,r);
+      buildDataRowsUI(t);
+    }
+    function removeHeaderCell(t,r,i) {
+      tableConfigs[t].headerRows[r].splice(i,1);
+      renderHeaderCells(t,r);
+      buildDataRowsUI(t);
+    }
+    function updateHeaderCell(t,r,i,k,v) {
+      tableConfigs[t].headerRows[r][i][k] = v;
+      buildDataRowsUI(t);
+    }
+    function renderHeaderCells(t,r) {
+      const cells = tableConfigs[t].headerRows[r];
+      const wrap = document.getElementById(`h-${t}-${r}`);
+      wrap.innerHTML = '';
+      cells.forEach((cell,i) => {
+        const d = document.createElement('div');
+        d.className = 'cell-config';
+        const body = `
+<label><div class="title">中文</div>
+  <input type="text" value="${cell.text}" oninput="updateHeaderCell(${t},${r},${i},'text',this.value)">
+</label>
+<label><div class="title">英文</div>
+  <input type="text" value="${cell.en}" oninput="updateHeaderCell(${t},${r},${i},'en',this.value)">
+</label>
+<label><div class="title">合併欄</div>
+  <input type="number" min="1" value="${cell.colspan}" oninput="updateHeaderCell(${t},${r},${i},'colspan',+this.value)">
+</label>
+<label><div class="title">合併列</div>
+  <input type="number" min="1" value="${cell.rowspan}" oninput="updateHeaderCell(${t},${r},${i},'rowspan',+this.value)">
+</label>
+<label><div class="title">寬度比例</div>
+  <input type="number" min="0" value="${cell.width}" oninput="updateHeaderCell(${t},${r},${i},'width',this.value)">
+</label>
+<button type="button" class="remove-button" onclick="removeHeaderCell(${t},${r},${i})">移除</button>`;
+        d.innerHTML = `<div class="cell-header"><span>儲存格設定-${i+1}</span><button type="button" class="collapse-btn">–</button></div><div class="body">${body}</div>`;
+        const hdr = d.querySelector('.cell-header');
+        const btn = d.querySelector('.collapse-btn');
+        hdr.addEventListener('click',()=>{
+          d.classList.toggle('collapsed');
+          btn.textContent = d.classList.contains('collapsed') ? '+' : '–';
+        });
+        wrap.appendChild(d);
+      });
+    }
+    function getLeaf(cfg) {
+      const grid = [];
+      const rows = cfg.headerRows.length;
+      for(let r=0;r<rows;r++){
+        if(!grid[r]) grid[r]=[];
+        let c=0;
+        cfg.headerRows[r].forEach(cell=>{
+          while(grid[r][c]) c++;
+          const cs=+cell.colspan||1, rs=+cell.rowspan||1;
+          for(let rr=0;rr<rs;rr++){
+            if(!grid[r+rr]) grid[r+rr]=[];
+            for(let cc=0;cc<cs;cc++){
+              grid[r+rr][c+cc] = {en:cell.en,width:cell.width,text:cell.text};
+            }
+          }
+          c++;
+        });
+      }
+      return rows ? grid[rows-1] : [];
+    }
+    function buildDataRowsUI(t) {
+      const cfg = tableConfigs[t];
+      const leaf = getLeaf(cfg);
+      const cols = leaf.length;
+      const panel = document.getElementById(`dataRowsDetail-${t}`);
+      if(cols===0){ panel.innerHTML=''; return; }
+      const total = parseInt(document.querySelector(`.dataRows[data-idx=\"${t}\"]`).value,10) || 1;
+      while(cfg.dataRowsCfg.length<total) cfg.dataRowsCfg.push({color:'',cells:Array.from({length:cols},()=>({text:'',colspan:1,rowspan:1}))});
+      cfg.dataRowsCfg.length = total;
+      cfg.dataRowsCfg.forEach(r=>{while(r.cells.length<cols) r.cells.push({text:'',colspan:1,rowspan:1}); r.cells.length=cols;});
+      panel.innerHTML = '';
+      cfg.dataRowsCfg.forEach((row,i)=>{
+        const title = document.createElement('div');
+        title.className='row-main-title';
+        title.textContent=`▶ 資料列 ${i+1}`;
+        title.addEventListener('click',()=>{
+          const body = document.getElementById(`d-${t}-${i}`);
+          if(body.style.display==='none'){ body.style.display='block'; title.textContent=`▼ 資料列 ${i+1}`; }
+          else { body.style.display='none'; title.textContent=`▶ 資料列 ${i+1}`; }
+        });
+        panel.appendChild(title);
+        const d = document.createElement('div');
+        d.className = 'row-config'; d.id=`d-${t}-${i}`; d.style.display='none';
+        d.innerHTML = `<label>背景色 <input type="color" value="${row.color||'#ffffff'}" onchange="tableConfigs[${t}].dataRowsCfg[${i}].color=this.value"></label><div id="d-cells-${t}-${i}" class="cells-wrapper"></div>`;
+        panel.appendChild(d);
+        renderDataCells(t,i);
+      });
+      updateDataRowLabels(t);
+    }
+    function renderDataCells(t,r) {
+      const cfg = tableConfigs[t]; const leaf = getLeaf(cfg); const wrap = document.getElementById(`d-cells-${t}-${r}`);
+      wrap.innerHTML = '';
+      cfg.dataRowsCfg[r].cells.forEach((cell,i)=>{
+        const d = document.createElement('div'); d.className='cell-config collapsed';
+        const labelText = leaf[i]?.text || '欄位名稱';
+        const body = `<label><div class="title">${labelText}</div><textarea oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].text=this.value;autogrow(this)">${cell.text}</textarea></label><label><div class="title">合併欄</div><input type="number" min="1" value="${cell.colspan}" oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].colspan=+this.value"></label><label><div class="title">合併列</div><input type="number" min="1" value="${cell.rowspan}" oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].rowspan=+this.value"></label>`;
+        d.innerHTML = `<div class="cell-header"><span>${labelText}</span><button type="button" class="collapse-btn">+</button></div><div class="body">${body}</div>`;
+        const hdr = d.querySelector('.cell-header'), btn = d.querySelector('.collapse-btn');
+        hdr.addEventListener('click',()=>{ d.classList.toggle('collapsed'); btn.textContent = d.classList.contains('collapsed') ? '+' : '–'; });
+        wrap.appendChild(d);
+      });
+    }
+    function updateDataRowLabels(t) {
+      const cfg = tableConfigs[t]; const leaf = getLeaf(cfg);
+      cfg.dataRowsCfg.forEach((_,ri)=>{ leaf.forEach((col,ci)=>{ const el = document.querySelector(`#d-cells-${t}-${ri} .cell-config:nth-child(${ci+1}) .title`); if(el && col.text) el.textContent = col.text; }); });
+    }
+    function autogrow(textarea) { textarea.style.height='auto'; textarea.style.height=textarea.scrollHeight+'px'; }
+    function buildTbody(cfg,defaultBg) {
+      const leaf = getLeaf(cfg), cols = leaf.length, rows = cfg.dataRowsCfg.length;
+      const occ = Array.from({length:rows},()=>Array(cols).fill(false));
+      let out=[];
+      for(let r=0;r<rows;r++){
+        const bg = cfg.dataRowsCfg[r].color || defaultBg;
+        const textColor = contrast(bg);
+        let tr = `<tr style="background:${bg};color:${textColor};">`;
+        for(let c=0;c<cols;c++){
+          if(occ[r][c]) continue;
+          const cell = cfg.dataRowsCfg[r].cells[c];
+          let cs = +cell.colspan||1, rs = +cell.rowspan||1;
+          if(c+cs>cols) cs=cols-c;
+          if(r+rs>rows) rs=rows-r;
+          for(let rr=0;rr<rs;rr++) for(let cc=0;cc<cs;cc++) occ[r+rr][c+cc] = true;
+          const dataAttr = (cs===1&&rs===1&&leaf[c].en) ? ` data-column=\"${leaf[c].en}\"` : '';
+          const htmlText = (cell.text||'').replace(/\n/g,'<br>');
+          tr += `<td${dataAttr}${cs>1?` colspan=\"${cs}\"`:''}${rs>1?` rowspan=\"${rs}\"`:''}>${htmlText||'&nbsp;'}</td>`;
+        }
+        tr += '</tr>';
+        out.push(tr);
+      }
+      return out.join('');
+    }
+    function generateTables() {
+      const merge = document.getElementById('mergeTables').checked;
+      const container = document.getElementById('table-output');
+      container.innerHTML='';
+      tableConfigs.forEach((cfg,idx)=>{
+        const hBg = document.querySelector(`.headerBg[data-idx=\"${idx}\"]`).value;
+        const dBg = document.querySelector(`.dataBg[data-idx=\"${idx}\"]`).value;
+        const hColor = contrast(hBg);
+        const leaf = getLeaf(cfg);
+        const colgroup = `<colgroup>${leaf.map(l=>`<col style=\"${l.width?`width:${l.width}%;`:''}\"></col>`).join('')}</colgroup>`;
+        const thead = cfg.headerRows.map(r=>`<tr>${r.map(cell=>`<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''}>${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('');
+        const tbody = buildTbody(cfg,dBg);
+        const tableHtml = `<style>.custom th{background:${hBg};color:${hColor};}</style><table class=\"preview custom${merge&&idx>0?' merged':''}\">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+        container.insertAdjacentHTML('beforeend', tableHtml);
+      });
+    }
+    function saveToLocal() {
+      localStorage.setItem('dynamicTableMulti', JSON.stringify({configs:tableConfigs, numTables:parseInt(document.getElementById('numTables').value,10), merge:document.getElementById('mergeTables').checked}));
+      alert('已保存！');
+    }
+    function loadFromLocal() {
+      const str = localStorage.getItem('dynamicTableMulti'); if(!str){alert('沒有資料'); return;}
+      try { const obj = JSON.parse(str); document.getElementById('numTables').value=obj.numTables; document.getElementById('mergeTables').checked=obj.merge; tableConfigs=obj.configs; buildTableConfigs(); generateTables(); } catch(e) { alert('格式錯誤'); }
+    }
+    window.onload = init;
+  </script>
+</head>
+<body>
+  <h1>動態欄位表格產生器 v7-多表格版</h1>
+  <fieldset><legend>表格數量</legend><label>表格數量 <input type="number" id="numTables" min="1" value="1"></label></fieldset>
+  <fieldset id="mergeOption" style="display:none"><legend>表格合併設定</legend><label><input type="checkbox" id="mergeTables"> 合併表格</label></fieldset>
+  <div id="tablesConfig"></div>
+  <button id="generateBtn">產生表格</button><button id="saveBtn">儲存至本機</button><button id="loadBtn">讀取本機</button>
+  <div id="table-output"></div>
+</body>
+</html>
