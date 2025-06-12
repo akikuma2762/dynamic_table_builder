@@ -475,7 +475,7 @@
     if (isMulti) {
       tmp.forEach((v7, idx) => {
         const tbl = buildTableFromV7(v7, false);
-        wrap.appendChild(document.createTextNode(`表格${idx+1}`));
+        //wrap.appendChild(document.createTextNode(`表格${idx+1}`));
         wrap.appendChild(tbl);
         tbl.querySelectorAll(".signature").forEach(initSignature);
       });
@@ -496,7 +496,7 @@
     if (isMulti) {
       fin.forEach((v7, idx) => {
         const tbl = buildTableFromV7(v7, true);
-        wrap.appendChild(document.createTextNode(`表格${idx+1}`));
+        //wrap.appendChild(document.createTextNode(`表格${idx+1}`));
         wrap.appendChild(tbl);
       });
     } else {

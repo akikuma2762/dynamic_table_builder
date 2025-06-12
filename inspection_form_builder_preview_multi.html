@@ -561,60 +561,60 @@
 
       /* === DOM → v7  (★加入簽名擷取) === */
       function domToV7(tbl, headerRows) {
-  // 傳入該張表的 headerRows，支援多表格結構
-  const cols = leafCols(headerRows).length;
+        // 傳入該張表的 headerRows，支援多表格結構
+        const cols = leafCols(headerRows).length;
 
-  const tdToHtml = (td) => {
-    const clone = td.cloneNode(true);
-    /* checkbox */
-    clone.querySelectorAll("input[type=checkbox]").forEach((inp) => {
-      inp.checked
-        ? inp.setAttribute("checked", "")
-        : inp.removeAttribute("checked");
-      inp.disabled = false;
-    });
-    /* textarea */
-    clone.querySelectorAll("textarea").forEach((t) => {
-      t.textContent = t.value;
-    });
+        const tdToHtml = (td) => {
+          const clone = td.cloneNode(true);
+          /* checkbox */
+          clone.querySelectorAll("input[type=checkbox]").forEach((inp) => {
+            inp.checked
+              ? inp.setAttribute("checked", "")
+              : inp.removeAttribute("checked");
+            inp.disabled = false;
+          });
+          /* textarea */
+          clone.querySelectorAll("textarea").forEach((t) => {
+            t.textContent = t.value;
+          });
 
-    /* text-input 內容 */
-    clone.querySelectorAll("input[type=text]").forEach((inp) => {
-      inp.setAttribute("value", inp.value); // 將當前值寫回 value 屬性
-    });
+          /* text-input 內容 */
+          clone.querySelectorAll("input[type=text]").forEach((inp) => {
+            inp.setAttribute("value", inp.value); // 將當前值寫回 value 屬性
+          });
 
-    clone.querySelectorAll(".del-btn").forEach((btn) => btn.remove());
+          clone.querySelectorAll(".del-btn").forEach((btn) => btn.remove());
 
-    /* Canvas 處理：保留簽名 */
-    const srcCanv = [...td.querySelectorAll("canvas.sigCanvas")];
-    const dstCanv = [...clone.querySelectorAll("canvas.sigCanvas")];
-    srcCanv.forEach((src, i) => {
-      const url = src.toDataURL(); // 有內容的 bitmap
-      if (dstCanv[i]) dstCanv[i].setAttribute("data-url", url);
-    });
+          /* Canvas 處理：保留簽名 */
+          const srcCanv = [...td.querySelectorAll("canvas.sigCanvas")];
+          const dstCanv = [...clone.querySelectorAll("canvas.sigCanvas")];
+          srcCanv.forEach((src, i) => {
+            const url = src.toDataURL(); // 有內容的 bitmap
+            if (dstCanv[i]) dstCanv[i].setAttribute("data-url", url);
+          });
 
-    return clone.innerHTML || "&nbsp;";
-  };
+          return clone.innerHTML || "&nbsp;";
+        };
 
-  const body = [...tbl.querySelectorAll("tbody tr")].map((tr) => {
-    const row = { color: "", cells: [] };
-    let ci = 0;
-    [...tr.children].forEach((td) => {
-      const cs = td.colSpan || 1, rs = td.rowSpan || 1;
-      row.cells[ci] = { text: tdToHtml(td), colspan: cs, rowspan: rs };
-      for (let i = 1; i < cs; i++)
-        row.cells[ci + i] = { text: "", colspan: 1, rowspan: 1 };
-      ci += cs;
-    });
-    while (row.cells.length < cols)
-      row.cells.push({ text: "", colspan: 1, rowspan: 1 });
-    return row;
-  });
+        const body = [...tbl.querySelectorAll("tbody tr")].map((tr) => {
+          const row = { color: "", cells: [] };
+          let ci = 0;
+          [...tr.children].forEach((td) => {
+            const cs = td.colSpan || 1,
+              rs = td.rowSpan || 1;
+            row.cells[ci] = { text: tdToHtml(td), colspan: cs, rowspan: rs };
+            for (let i = 1; i < cs; i++)
+              row.cells[ci + i] = { text: "", colspan: 1, rowspan: 1 };
+            ci += cs;
+          });
+          while (row.cells.length < cols)
+            row.cells.push({ text: "", colspan: 1, rowspan: 1 });
+          return row;
+        });
 
-  // 回傳該張表格的 v7 結構
-  return { headerRows, dataRowsCfg: body };
-}
-
+        // 回傳該張表格的 v7 結構
+        return { headerRows, dataRowsCfg: body };
+      }
 
       /* ===== 拖放 ===== */
       function enableDrag(tbl) {
@@ -714,7 +714,6 @@
       };
 
       /* ===== 預覽 / 儲存 ===== */
-      /* ===== 預覽 / 儲存 ===== */
       function preview() {
         const wrap = document.getElementById("tableWrap");
         if (!wrap.hasChildNodes()) {
@@ -740,15 +739,7 @@
         const outputArea = document.getElementById("outputArea");
         outputArea.innerHTML = "";
         outputArea.appendChild(cloneWrap);
-        // palette 元素清除 draggable-item、reusable 類
-        outputArea
-          .querySelectorAll(".draggable-item.reusable")
-          .forEach((el) => {
-            el.classList.remove("draggable-item", "reusable");
-            const delBtn = el.querySelector(".del-btn");
-            if (delBtn) delBtn.remove();
-          });
-
+        
         const bar = document.createElement("div");
         bar.className = "buttons-inline";
         const btnTmp = document.createElement("button");
@@ -758,20 +749,23 @@
         bar.append(btnTmp, btnFin);
         outputArea.appendChild(bar);
         btnTmp.onclick = () =>
-          saveMultiTablesToLS(TMP_KEY, "已暫存！(可繼續編輯)");
+          saveMultiTablesToLS(TMP_KEY, "已暫存！(可繼續編輯)", "outputArea");
         btnFin.onclick = () =>
-          saveMultiTablesToLS(FIN_KEY, "已存為完成版 (鎖定)");
+          saveMultiTablesToLS(FIN_KEY, "已存為完成版 (鎖定)", "outputArea");
       }
 
-      function saveMultiTablesToLS(key, msg) {
-  console.log("儲存多表格到 LS:", key);
-  const multi = JSON.parse(localStorage.getItem(MULTI_KEY));
-  const tables = [...document.querySelectorAll("#tableWrap table")];
-  const arr = tables.map((tbl, idx) => domToV7(tbl, multi.configs[idx].headerRows));
-  localStorage.setItem(key, JSON.stringify(arr));
-  alert(msg);
-  refreshSavedArea();
-}
+      function saveMultiTablesToLS(key, msg,tableRootId = "outputArea") {
+        console.log("儲存多表格到 LS:", key);
+        const multi = JSON.parse(localStorage.getItem(MULTI_KEY));
+        const tables = [...document.getElementById(tableRootId).querySelectorAll("table")];
+
+        const arr = tables.map((tbl, idx) =>
+          domToV7(tbl, multi.configs[idx].headerRows)
+        );
+        localStorage.setItem(key, JSON.stringify(arr));
+        alert(msg);
+        refreshSavedArea();
+      }
 
       function buildMultiTables(configs, readOnly = false) {
         const wrap = document.getElementById("tableWrap");
@@ -822,7 +816,7 @@
       /* ===== 暫存／完成 區 ===== */
       function refreshSavedArea() {
         const area = document.getElementById("savedArea");
-         if (!area) return;
+        if (!area) return;
         area.innerHTML = "";
         // 暫存
         const tmp = readJSON(TMP_KEY);
@@ -839,10 +833,12 @@
             btn.onclick = () => {
               // 單表更新：取所有表再存
               const multi = JSON.parse(localStorage.getItem(MULTI_KEY));
-  const tbls = [...wrap.querySelectorAll("table")];
-  const arr = tbls.map((tbl, idx) => domToV7(tbl, multi.configs[idx].headerRows));
-  localStorage.setItem(TMP_KEY, JSON.stringify(arr));
-  alert("暫存已更新");
+              const tbls = [...wrap.querySelectorAll("table")];
+              const arr = tbls.map((tbl, idx) =>
+                domToV7(tbl, multi.configs[idx].headerRows)
+              );
+              localStorage.setItem(TMP_KEY, JSON.stringify(arr));
+              alert("暫存已更新");
             };
             wrap.appendChild(btn);
           });
