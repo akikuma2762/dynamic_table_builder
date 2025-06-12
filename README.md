@@ -24,28 +24,6 @@
 
 ---
 
-## 🆕 多表格（multi 版）功能
-
-### 4. `dynamic_table_builder_multi.html`
-- 功能：支援同時設計多份表格（多表格設定），可設定每份表格的表頭、資料列、顏色等。
-- 儲存至 localStorage（key: `dynamicTableMulti`），資料結構為 `{ configs: [多份表格設定], numTables, merge }`。
-- 適合需要一次管理多份檢查表的場景。
-
-### 5. `inspection_form_builder_preview_multi.html`
-- 功能：多表格檢查表設計與預覽工具。
-- 讀取 `dynamicTableMulti`，針對每份表格分別產生 palette、拖放、簽名、自訂元件、暫存/完成、行選取等互動功能。
-- 暫存/完成資料分別存於 `saveTableJSON_multi_temp`、`saveTableJSON_multi_final`（陣列型態，每份表格一份）。
-- 支援 palette 自訂、Quill 編輯器、拖放元件進表格、簽名互動等，與單表格版功能一致但多表格分離。
-- 每份表格的 palette、builder、table、output、savedArea 皆獨立，資料結構分離，互不干擾。
-- 適合需要同時設計、預覽、管理多份檢查表的場景。
-
-### 6. `inspection_form_saved_area_multi.html`
-- 功能：多表格的「暫存/完成區」。
-- 讀取 `saveTableJSON_multi_temp`、`saveTableJSON_multi_final`，分別顯示多份表格的暫存/完成內容。
-- 適合管理多份檢查表的暫存與完成資料。
-
----
-
 ## 特色功能
 
 - **多層表頭設定**：可自訂 1~3 層表頭，每格可設定中文、英文、合併欄/列、寬度比例。
@@ -55,13 +33,42 @@
 - **即時預覽**：即時產生並預覽 HTML 表格，支援 data-column 屬性，方便資料處理。
 - **友善操作介面**：欄位設定支援摺疊/展開，操作直覺。
 - **拖放與元件擴充**：支援拖放元件（checkbox、簽名、文字輸入等）到表格中，並可自訂 palette。
-- **多表格管理**：multi 版可同時設計、預覽、管理多份表格，資料結構分離，互不干擾。
 
 ## 使用方式
 
-1. 下載或打開 `dynamic_table_builder.html` 或 `dynamic_table_builder_multi.html`，設計單一或多份表格結構並儲存。
-2. 開啟 `inspection_form_builder_preview.html` 或 `inspection_form_builder_preview_multi.html`，進行互動式檢查表設計、拖放元件、暫存/完成。
-3. 開啟 `inspection_form_saved_area.html` 或 `inspection_form_saved_area_multi.html`，檢視與管理暫存/完成的檢查表。
+1. 下載或打開 `dynamic_table_builder.html`，設計表格結構並儲存。
+2. 開啟 `inspection_form_builder_preview.html`，進行互動式檢查表設計、拖放元件、暫存/完成。
+3. 開啟 `inspection_form_saved_area.html`，檢視與管理暫存/完成的檢查表。
+
+---
+
+## 多表格（multi 版）功能說明
+
+### 1. `inspection_form_builder_preview_multi.html`
+- 功能：多表格互動式檢查表設計工具。
+- 支援 palette 拖放、簽名、Quill 編輯器、自訂 palette、暫存/完成、行選取等功能，且每份表格皆獨立互動與儲存。
+- 每個表格的 palette、builder、table、output、savedArea 皆分離，資料結構獨立，localStorage key 以 multi 版分離命名。
+- 適用於同時設計、管理多份檢查表，避免資料混淆。
+- 主要資料流：
+  - 讀取多份 `dynamicTableJSON` 結構，分別產生多個 builder 區塊。
+  - 各表格的 palette 拖放、簽名、Quill 編輯器等互動元件皆獨立運作。
+  - 暫存/完成時，分別儲存至對應的 localStorage key（如 `saveTableJSON_temp_multi_{id}`）。
+
+### 2. `inspection_form_saved_area_multi.html`
+- 功能：多表格暫存/完成區，支援多份檢查表資料的顯示與管理。
+- 可同時檢視、管理多份暫存/完成的檢查表，並以分區方式呈現。
+- 讀取多個 `saveTableJSON_temp_multi_{id}`、`saveTableJSON_final_multi_{id}`，以及對應的 `dynamicTableJSON_multi_{id}`。
+- 適合需要同時追蹤多份檢查表進度與內容的場景。
+
+### 3. multi 版與單表格版差異
+- 單表格版（`inspection_form_builder_preview.html`, `inspection_form_saved_area.html`）僅支援單一檢查表的互動與管理。
+- multi 版則可同時操作多份檢查表，所有 palette、互動元件、資料儲存皆分離，互不干擾。
+- multi 版 localStorage key 皆加上 multi 與唯一 id 以區分。
+
+### 4. 使用方式（multi 版）
+1. 下載或打開 `dynamic_table_builder_multi.html`，設計多份表格結構並儲存（每份表格皆有獨立設定）。
+2. 開啟 `inspection_form_builder_preview_multi.html`，可同時設計、互動多份檢查表，palette/簽名/Quill/暫存/完成等功能皆獨立。
+3. 開啟 `inspection_form_saved_area_multi.html`，同時檢視、管理多份暫存/完成的檢查表。
 
 ---
 
