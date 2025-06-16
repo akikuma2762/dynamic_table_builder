@@ -9,20 +9,16 @@
       body {
         font-family: "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
         margin: 1.5rem;
+        /* 讓右側 palette 不會蓋到內容 */
+        margin-right: 340px;
       }
-
+      body.palette-collapsed {
+        /* palette 收合後還原寬度 */
+        margin-right: 24px;
+      }
       #controls button {
         margin-right: 0.5rem;
         padding: 4px 10px;
-      }
-
-      #palette {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        padding: 0.5rem;
-        border: 1px dashed #999;
-        max-width: 100%;
       }
 
       .draggable-item {
@@ -61,9 +57,9 @@
       td.drop-hover {
         background: #c8e6c9;
       }
-
-      #outputArea,
-      #savedArea {
+      #tableWrap,
+      #outputArea
+      {
         margin-top: 2rem;
         border: 2px dashed #aaa;
         padding: 1rem;
@@ -167,29 +163,103 @@
         text-align: center;
       }
 
-      /* ----- Palette 分區樣式 ----- */
-      #palette {
+      /* ===== 固定側欄 Palette ===== */
+      #palette-wrapper {
+        position: fixed;
+        right: 0;
+        top: 0;
+        height: 100vh;
+        width: 320px;
+        background: #fafafa;
+        border-left: 1px solid #ccc;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+        box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        padding: 12px 8px 12px 12px;
+        z-index: 998;
+        transition: transform 0.25s ease;
+      }
+      #palette-wrapper.collapsed {
+        transform: translateX(100%);
+      }
+      /* palette 捲動區域 */
+      #palette {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding-right: 4px; /* 讓卷軸有一點空隙 */
       }
 
+      /* 收合/展開把手 */
+      #palette-toggle {
+        position: absolute;
+        left: -30px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 64px;
+        border: 1px solid #ccc;
+        border-radius: 6px 0 0 6px;
+        background: #fafafa;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+        user-select: none;
+        font-size: 14px;
+      }
+
+      /* palette 標題 (可摺疊) */
+      h4.collapsible {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        margin: 0 0 0.25rem;
+        font-weight: bold;
+        user-select: none;
+      }
+      h4.collapsible .caret {
+        margin-left: 6px;
+        font-size: 0.9rem;
+      }
+
+      /* palette 內容區塊 */
       .palette-block {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
         padding: 0.5rem;
         border: 1px dashed #999;
+        margin-bottom: 0.75rem;
+      }
+      .palette-block.collapsed {
+        display: none;
       }
 
+      /* 區塊配色 */
       .palette-block.native {
         background: #fffbe6;
         border-color: #f0c36d;
       }
-
       .palette-block.custom {
         background: #e8fbe9;
         border-color: #4caf50;
+      }
+
+      /* -------- palette 內元素 -------- */
+      .draggable-item {
+        background: #fff;
+        border: 1px solid #bbb;
+        padding: 0.4rem;
+        cursor: grab;
+        width: 280px;
+        box-sizing: border-box;
+      }
+      .reusable {
+        background: #e1f5fe;
+        border-color: #03a9f4;
+        /* width: 180px; */
       }
     </style>
 
@@ -278,34 +348,46 @@
       <button id="builderClearBtn" type="button">清空輸入</button>
     </fieldset>
 
-    <!-- -------- Palette -------- -->
-
-    <div id="palette">
-      <h4 style="margin: 0 0 0.25rem">原生項目</h4>
-      <div id="palette-native" class="palette-block native">
-        <div id="item1" class="draggable-item" draggable="true">
-          刀套規格確認。<label><input type="checkbox" /> CAT90</label>
-        </div>
-        <div id="chkReusable" class="draggable-item reusable" draggable="true">
-          <label><input type="checkbox" /> OK</label>
-        </div>
-        <div id="txtReusable" class="draggable-item reusable" draggable="true">
-          <textarea placeholder="請輸入..."></textarea>
-        </div>
-        <div id="sigReusable" class="draggable-item reusable" draggable="true">
-          <div class="signature">
-            <canvas class="sigCanvas" width="200" height="60"></canvas>
-            <button class="clearSig">清除</button>
+    <div id="palette-wrapper">
+      <div id="palette-toggle">❯</div>
+      <div id="palette-controls" style="margin-bottom: 0.5rem">
+        <button id="toggleAll" class="small">全部收合</button>
+      </div>
+      <div id="palette">
+        <!-- 原生 -->
+        <h4 class="collapsible">原生項目 <span class="caret">▼</span></h4>
+        <div id="palette-native" class="palette-block native">
+          <div
+            id="chkReusable"
+            class="draggable-item reusable"
+            draggable="true"
+          >
+            <label><input type="checkbox" /> OK</label>
+          </div>
+          <div
+            id="txtReusable"
+            class="draggable-item reusable"
+            draggable="true"
+          >
+            <textarea placeholder="請輸入..."></textarea>
+          </div>
+          <div
+            id="sigReusable"
+            class="draggable-item reusable"
+            draggable="true"
+          >
+            <div class="signature">
+              <canvas class="sigCanvas" width="200" height="60"></canvas>
+              <button class="clearSig">清除</button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <h4 style="margin: 0.75rem 0 0.25rem">自訂項目</h4>
-      <div id="palette-custom" class="palette-block custom">
-        <!-- 這裡會自動載入自訂項目 -->
+        <!-- 自訂 -->
+        <h4 class="collapsible">自訂項目 <span class="caret">▼</span></h4>
+        <div id="palette-custom" class="palette-block custom"></div>
       </div>
     </div>
-
+    <h4>編輯區：</h4>
     <div id="tableWrap"></div>
     <h4>預覽區：</h4>
     <div id="outputArea">(尚未匯出)</div>
@@ -322,10 +404,50 @@
     </div>
 
     <script>
-      /* ===== Keys ===== */
-      const MULTI_KEY = "dynamicTableMulti";
-      const TMP_KEY = "saveTableJSON_multi_temp";
-      const FIN_KEY = "saveTableJSON_multi_final";
+      /* ===== Palette 收合 / 展開 ===== */
+      document.addEventListener("DOMContentLoaded", () => {
+        const wrapper = document.getElementById("palette-wrapper");
+        const toggle = document.getElementById("palette-toggle");
+        if (!wrapper || !toggle) return; // 預防 id 打錯或節點缺失
+
+        let collapsed = false;
+        const update = () => {
+          wrapper.classList.toggle("collapsed", collapsed);
+          document.body.classList.toggle("palette-collapsed", collapsed);
+          toggle.textContent = collapsed ? "❮" : "❯";
+        };
+        toggle.addEventListener("click", () => {
+          collapsed = !collapsed;
+          update();
+        });
+        update(); // 初始狀態
+      });
+
+      /* -------- palette 摺疊 & 全域開關 -------- */
+      document.addEventListener("DOMContentLoaded", () => {
+        // 個別摺疊
+        document.querySelectorAll("h4.collapsible").forEach((h) => {
+          h.addEventListener("click", () => {
+            const caret = h.querySelector(".caret");
+            const block = h.nextElementSibling;
+            const collapsed = block.classList.toggle("collapsed");
+            caret.textContent = collapsed ? "▶" : "▼";
+          });
+        });
+
+        // 全部收合/展開
+        const toggleBtn = document.getElementById("toggleAll");
+        let allCollapsed = false;
+        toggleBtn.addEventListener("click", () => {
+          allCollapsed = !allCollapsed;
+          document.querySelectorAll("#palette .palette-block").forEach((bl) => {
+            bl.classList.toggle("collapsed", allCollapsed);
+            const caret = bl.previousElementSibling.querySelector(".caret");
+            if (caret) caret.textContent = allCollapsed ? "▶" : "▼";
+          });
+          toggleBtn.textContent = allCollapsed ? "全部展開" : "全部收合";
+        });
+      });
 
       /* ===== helpers ===== */
       const contrast = (h) => {
@@ -410,6 +532,7 @@
         sigModal.style.display = "none";
         smallCvs = null;
       };
+
       document.getElementById("modalSave").onclick = () => {
         if (smallCvs)
           smallCvs
@@ -475,7 +598,7 @@
         console.log("leafCols:", leaf);
         const colgroup =
           "<colgroup>" +
-          leaf.map((l) => `<col style="width:${l.width || ""}%;">`).join("") +
+          leaf.map((l) => `<col style="width:${l.width || ""}%">`).join("") +
           "</colgroup>";
         const hBg = "#d9eaff",
           hColor = contrast(hBg);
@@ -488,8 +611,11 @@
                   (c) =>
                     `<th${c.colspan > 1 ? ` colspan="${c.colspan}"` : ""}${
                       c.rowspan > 1 ? ` rowspan="${c.rowspan}"` : ""
-                    }${c.en ? ` data-column="${c.en}"` : ""}>
-      ${c.text || "&nbsp;"}${c.en ? `<br><small>${c.en}</small>` : ""}</th>`
+                    }${c.en ? ` data-column="${c.en}"` : ""} 
+                    style="text-align:${c.align||'left'};
+            color:${c.color||'#000'};
+            font-size:${c.size||16}px;">
+        ${c.text || "&nbsp;"}${c.en ? `<br><small>${c.en}</small>` : ""}</th>`
                 )
                 .join("") +
               "</tr>"
@@ -509,22 +635,19 @@
           for (let c = 0; c < cols; c++) {
             if (occ[r][c]) continue;
             const cell = v7.dataRowsCfg[r].cells[c] || {};
-            let cs = +cell.colspan || 1,
-              rs = +cell.rowspan || 1;
+            let cs = +cell.colspan || 1;
+            let rs = +cell.rowspan || 1;
             if (c + cs > cols) cs = cols - c;
             if (r + rs > rows) rs = rows - r;
             for (let rr = 0; rr < rs; rr++)
               for (let cc = 0; cc < cs; cc++) occ[r + rr][c + cc] = true;
-            const data =
-              cs === 1 && rs === 1 && leaf[c]?.en
-                ? ` data-column="${leaf[c].en}"`
-                : "";
-            const inner = cell.text?.trim() ? cell.text : cell.html || "&nbsp;";
-            const htmlText = (cell.text || "").replace(/\n/g, "<br>"); // 將換行符轉為 <br>
-            console.log(htmlText);
-            tr += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ""}${
-              rs > 1 ? ` rowspan="${rs}"` : ""
-            }>${htmlText}</td>`;
+            const data = (cs === 1 && rs === 1 && leaf[c]?.en) ? ` data-column=\"${leaf[c].en}\"` : "";
+            // 優先 cell.align/color/size，無則 fallback leaf
+            const align = cell.align || leaf[c]?.align || "left";
+            const fColor = cell.color || leaf[c]?.color || "#000";
+            const fSize  = cell.size  || leaf[c]?.size  || 16;
+            const htmlText = (cell.text || "").replace(/\n/g, "<br>");
+            tr += `<td${data}${cs > 1 ? ` colspan=\"${cs}\"` : ""}${rs > 1 ? ` rowspan=\"${rs}\"` : ""} style=\"text-align:${align};color:${fColor};font-size:${fSize}px;\">${htmlText || "&nbsp;"}</td>`;
           }
           tr += "</tr>";
           tb.push(tr);
@@ -564,6 +687,15 @@
         // 傳入該張表的 headerRows，支援多表格結構
         const cols = leafCols(headerRows).length;
 
+         /* 將 rgb(...) 轉 #rrggbb；傳入 #xxxxxx 或空字串則原樣回傳 */
+  const toHex = (rgbStr) => {
+    if (!rgbStr || rgbStr.startsWith('#')) return rgbStr || '';
+    const m = rgbStr.match(/^rgb[a]?\s*\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!m) return '';
+    const h = (n) => ('0' + parseInt(n, 10).toString(16)).slice(-2);
+    return `#${h(m[1])}${h(m[2])}${h(m[3])}`;
+  };
+
         const tdToHtml = (td) => {
           const clone = td.cloneNode(true);
           /* checkbox */
@@ -596,19 +728,42 @@
           return clone.innerHTML || "&nbsp;";
         };
 
+        /* === 走訪 <tbody> === */
         const body = [...tbl.querySelectorAll("tbody tr")].map((tr) => {
-          const row = { color: "", cells: [] };
+          /* ① 取得行樣式 */
+          const bg = toHex(
+            tr.style.backgroundColor || getComputedStyle(tr).backgroundColor
+          );
+          const styleStr = tr.getAttribute("style") || "";
+
+          /* ② 走訪 cell */
+          const row = { color: bg, style: styleStr, cells: [] };
           let ci = 0;
           [...tr.children].forEach((td) => {
             const cs = td.colSpan || 1,
               rs = td.rowSpan || 1;
-            row.cells[ci] = { text: tdToHtml(td), colspan: cs, rowspan: rs };
+            // 讀取 align/color/size
+            const style = window.getComputedStyle(td);
+            const align = td.style.textAlign || style.textAlign || "left";
+            const color = toHex(td.style.color || style.color || "#000");
+            let size = td.style.fontSize || style.fontSize || "16px";
+            size = parseInt(size) || 16;
+            row.cells[ci] = {
+              text: tdToHtml(td),
+              colspan: cs,
+              rowspan: rs,
+              align,
+              color,
+              size
+            };
             for (let i = 1; i < cs; i++)
-              row.cells[ci + i] = { text: "", colspan: 1, rowspan: 1 };
+              row.cells[ci + i] = { text: "", colspan: 1, rowspan: 1, align: "left", color: "#000", size: 16 };
             ci += cs;
           });
+
+          /* 補滿不足欄 */
           while (row.cells.length < cols)
-            row.cells.push({ text: "", colspan: 1, rowspan: 1 });
+            row.cells.push({ text: "", colspan: 1, rowspan: 1, align: "left", color: "#000", size: 16 });
           return row;
         });
 
@@ -714,6 +869,110 @@
       };
 
       /* ===== 預覽 / 儲存 ===== */
+      // 儲存多表格資料，統一經由 loadSelect 下拉選單與 LIST_KEY 管理
+      function saveToLocalMultiCustom() {
+        const sel = document.getElementById("loadSelect");
+        let name = sel && sel.value ? sel.value : "";
+        let save_name = prompt("請輸入要儲存的檔案名稱：");
+        if (!save_name) { alert("未輸入名稱，未儲存。"); return; }
+        // 取得所有表格的 v7 結構
+        const wrap = document.getElementById("outputArea");
+        const tables = [...wrap.querySelectorAll("table")];
+        if (tables.length === 0) { alert("沒有表格可儲存"); return; }
+        // 讀取原有資料（必須讀取 dynamicTableMulti__ 作為 headerRows 來源）
+        let obj = {};
+        const raw = localStorage.getItem("dynamicTableMulti__" + name);
+        if (raw) {
+          try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
+        }
+        // === 新增：如名稱重複，詢問是否覆蓋 ===
+        let names = getPreviewNameList();
+        if (names.includes(save_name)) {
+          if (!confirm("名稱「" + save_name + "」已存在，是否覆蓋？")) {
+            alert("已取消儲存。");
+            return;
+          }
+        }
+        // 取得現有表格內容
+        const multi = { configs: tables.map((tbl, idx) => domToV7(tbl, obj.configs ? obj.configs[idx]?.headerRows : [])) };
+        // 覆蓋存回（存到 dynamicTableMultiPreview__）
+        localStorage.setItem("dynamicTableMultiPreview__" + save_name, JSON.stringify(multi));
+        // 維護預覽名稱清單
+        if (!names.includes(save_name)) {
+          names.push(save_name);
+          localStorage.setItem(PREVIEW_LIST_KEY, JSON.stringify(names));
+        }
+        alert("已儲存預覽為「" + save_name + "」");
+      }
+
+      function preview() {
+        const wrap = document.getElementById("tableWrap");
+        if (!wrap.hasChildNodes()) {
+          alert("沒有表格");
+          return;
+        }
+        // 1. 複製所有現有表格
+        const cloneWrap = document.createElement("div");
+        cloneWrap.className = "multi-preview";
+
+        wrap.querySelectorAll("table").forEach((tbl) => {
+          const clone = tbl.cloneNode(true);
+          // 複製簽名 canvas
+          [...tbl.querySelectorAll("canvas.sigCanvas")].forEach((src, i) => {
+            const dst = clone.querySelectorAll("canvas.sigCanvas")[i];
+            if (src && dst) {
+              dst.getContext("2d").drawImage(src, 0, 0, dst.width, dst.height);
+            }
+          });
+          enableDrag(clone);
+          clone.querySelectorAll("canvas.sigCanvas").forEach((c) => c.removeAttribute("data-bound"));
+          clone.querySelectorAll(".signature").forEach(initSignature);
+          cloneWrap.appendChild(clone);
+        });
+        const outputArea = document.getElementById("outputArea");
+        outputArea.innerHTML = "";
+        outputArea.appendChild(cloneWrap);
+
+        const bar = document.createElement("div");
+        bar.className = "buttons-inline";
+        const btnSave = document.createElement("button");
+        btnSave.textContent = "儲存";
+        bar.append(btnSave);
+        outputArea.appendChild(bar);
+
+        // === 僅保留儲存功能 ===
+        function saveToLocalMultiCustom() {
+          const sel = document.getElementById("loadSelect");
+          let name = sel && sel.value ? sel.value : prompt("請輸入要儲存的檔案名稱：");
+          if (!name) return;
+          // 取得目前畫面所有表格的 v7 結構
+          const tables = [...outputArea.querySelectorAll("table")];
+          // 讀取現有資料（如有）
+          let obj = {};
+          const raw = localStorage.getItem("dynamicTableMulti__" + name);
+          if (raw) {
+            try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
+          }
+          // 以目前畫面為主覆蓋
+          configs = tables.map((tbl, idx) => domToV7(tbl, configs[idx]?.headerRows || []));
+          // 儲存
+          const key = `dynamicTableMulti__${name}`;
+          localStorage.setItem(key, JSON.stringify({ configs }));
+          // 更新名稱清單
+          let names = getBuilderNameList();
+          if (!names.includes(name)) {
+            names.push(name);
+            localStorage.setItem(LIST_KEY, JSON.stringify(names));
+          }
+          refreshNameOptions(name);
+          alert(`已儲存為「${name}」`);
+        }
+        btnSave.onclick = saveToLocalMultiCustom;
+      }
+
+     
+
+      // 預覽區僅保留「儲存」按鈕，並呼叫 saveToLocalMultiCustom
       function preview() {
         const wrap = document.getElementById("tableWrap");
         if (!wrap.hasChildNodes()) {
@@ -733,40 +992,23 @@
             }
           });
           enableDrag(clone);
+          clone.querySelectorAll("canvas.sigCanvas").forEach((c) => c.removeAttribute("data-bound"));
           clone.querySelectorAll(".signature").forEach(initSignature);
           cloneWrap.appendChild(clone);
         });
         const outputArea = document.getElementById("outputArea");
         outputArea.innerHTML = "";
         outputArea.appendChild(cloneWrap);
-        
         const bar = document.createElement("div");
         bar.className = "buttons-inline";
-        const btnTmp = document.createElement("button");
-        btnTmp.textContent = "暫存";
-        const btnFin = document.createElement("button");
-        btnFin.textContent = "完成";
-        bar.append(btnTmp, btnFin);
+        const btnSave = document.createElement("button");
+        btnSave.textContent = "儲存";
+        bar.append(btnSave);
         outputArea.appendChild(bar);
-        btnTmp.onclick = () =>
-          saveMultiTablesToLS(TMP_KEY, "已暫存！(可繼續編輯)", "outputArea");
-        btnFin.onclick = () =>
-          saveMultiTablesToLS(FIN_KEY, "已存為完成版 (鎖定)", "outputArea");
+        btnSave.onclick = saveToLocalMultiCustom;
       }
 
-      function saveMultiTablesToLS(key, msg,tableRootId = "outputArea") {
-        console.log("儲存多表格到 LS:", key);
-        const multi = JSON.parse(localStorage.getItem(MULTI_KEY));
-        const tables = [...document.getElementById(tableRootId).querySelectorAll("table")];
-
-        const arr = tables.map((tbl, idx) =>
-          domToV7(tbl, multi.configs[idx].headerRows)
-        );
-        localStorage.setItem(key, JSON.stringify(arr));
-        alert(msg);
-        refreshSavedArea();
-      }
-
+      // 其餘所有 localStorage 存取多表格資料的地方，請統一經由 loadSelect 下拉選單與 LIST_KEY 管理
       function buildMultiTables(configs, readOnly = false) {
         const wrap = document.getElementById("tableWrap");
         wrap.innerHTML = "";
@@ -784,12 +1026,28 @@
 
       /* ===== Working 區 ===== */
       function loadMultiWorking() {
-        const raw = localStorage.getItem(MULTI_KEY);
+        const sel = document.getElementById("loadSelect");
+        if(!sel){
+          document.getElementById("tableWrap").textContent = "(找不到選擇器)";
+          return;
+        }
+        const name = sel.value;
+        if(!name){
+          document.getElementById("tableWrap").textContent = "(請先選擇檔案)";
+          return;
+        }
+        const raw = localStorage.getItem("dynamicTableMulti__"+name);
         if (!raw) {
           document.getElementById("tableWrap").textContent = "(尚無資料)";
           return;
         }
-        const obj = JSON.parse(raw);
+        let obj;
+        try {
+          obj = JSON.parse(raw);
+        } catch(e) {
+          document.getElementById("tableWrap").textContent = "(資料格式錯誤)";
+          return;
+        }
         if (!obj.configs || !Array.isArray(obj.configs)) {
           document.getElementById("tableWrap").textContent = "(資料格式錯誤)";
           return;
@@ -813,51 +1071,7 @@
         });
       }
 
-      /* ===== 暫存／完成 區 ===== */
-      function refreshSavedArea() {
-        const area = document.getElementById("savedArea");
-        if (!area) return;
-        area.innerHTML = "";
-        // 暫存
-        const tmp = readJSON(TMP_KEY);
-        if (tmp && Array.isArray(tmp)) {
-          const wrap = document.createElement("div");
-          wrap.className = "saved-block";
-          wrap.innerHTML = '<div class="saved-title">暫存版 (可編輯)</div>';
-          tmp.forEach((v7, i) => {
-            const tbl = buildTableFromV7(v7);
-            wrap.appendChild(document.createTextNode(`表格${i + 1}`));
-            wrap.appendChild(tbl);
-            const btn = document.createElement("button");
-            btn.textContent = "更新暫存";
-            btn.onclick = () => {
-              // 單表更新：取所有表再存
-              const multi = JSON.parse(localStorage.getItem(MULTI_KEY));
-              const tbls = [...wrap.querySelectorAll("table")];
-              const arr = tbls.map((tbl, idx) =>
-                domToV7(tbl, multi.configs[idx].headerRows)
-              );
-              localStorage.setItem(TMP_KEY, JSON.stringify(arr));
-              alert("暫存已更新");
-            };
-            wrap.appendChild(btn);
-          });
-          area.appendChild(wrap);
-        }
-        // 完成
-        const fin = readJSON(FIN_KEY);
-        if (fin && Array.isArray(fin)) {
-          const wrap = document.createElement("div");
-          wrap.className = "saved-block";
-          wrap.innerHTML = '<div class="saved-title">完成版 (唯讀)</div>';
-          fin.forEach((v7, i) => {
-            const tbl = buildTableFromV7(v7, true);
-            wrap.appendChild(document.createTextNode(`表格${i + 1}`));
-            wrap.appendChild(tbl);
-          });
-          area.appendChild(wrap);
-        }
-      }
+      
 
       /* ===== Buttons ===== */
       document.getElementById("previewBtn").onclick = () => {
@@ -871,21 +1085,22 @@
             .forEach((el) => {
               el.classList.remove("draggable-item", "reusable"); // 只移除 class，不刪除元素
               const delBtn = el.querySelector(".del-btn");
-              if (delBtn) delBtn.remove(); // 刪除內部的 del-btn 區塊
+              if (delBtn) { delBtn.remove(); } // 修正括號
             });
         }
       };
       document.getElementById("reloadBtn").onclick = () => {
         loadMultiWorking();
-        refreshSavedArea();
         initNativeDelBtns();
         loadCustomPalette();
       };
       document.getElementById("clearLSBtn").onclick = () => {
         if (confirm("確定清除所有儲存？")) {
-          [MULTI_KEY, TMP_KEY, FIN_KEY].forEach((k) =>
-            localStorage.removeItem(k)
-          );
+          // 清除所有 dynamicTableMulti__ 開頭的資料
+          Object.keys(localStorage).forEach(k => {
+            if (k.startsWith("dynamicTableMulti__")) localStorage.removeItem(k);
+          });
+          localStorage.removeItem(LIST_KEY);
           location.reload();
         }
       };
@@ -954,8 +1169,7 @@
       }
 
       /* ===== Init ===== */
-      loadMultiWorking();
-      refreshSavedArea();
+      //loadMultiWorking();
 
       /* ===== AutoInit native+custom ===== */
       document.addEventListener("DOMContentLoaded", () => {
@@ -1075,6 +1289,96 @@
           };
         }
       });
+    </script>
+    <script>
+// ===== 多表格下拉選單與讀取功能 =====
+const LIST_KEY = "dynamicTableMulti__names";
+const PREVIEW_LIST_KEY = "dynamicTableMultiPreview__names";
+function getBuilderNameList(){
+  try{ return JSON.parse(localStorage.getItem(LIST_KEY)) || []; }
+  catch(e){ return []; }
+}
+function getPreviewNameList(){
+  try{ return JSON.parse(localStorage.getItem(PREVIEW_LIST_KEY)) || []; }
+  catch(e){ return []; }
+}
+function refreshNameOptions(selId=""){
+  let sel = document.getElementById("loadSelect");
+  if(!sel){
+    sel = document.createElement("select");
+    sel.id = "loadSelect";
+    sel.innerHTML = '<option value="">-- 選擇檔案 --</option>';
+    const controls = document.getElementById("controls");
+    if(controls) controls.appendChild(sel);
+  }
+  sel.innerHTML = '<option value="">-- 選擇檔案 --</option>';
+  getBuilderNameList().forEach(n=>{
+    const o=document.createElement("option");
+    o.value=o.textContent=n;
+    if(n===selId) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+function loadFromLocal(){
+  const sel = document.getElementById("loadSelect");
+  if(!sel){ alert("找不到選擇器"); return; }
+  const name = sel.value;
+  if(!name){ alert("請先選擇檔案"); return; }
+  const raw = localStorage.getItem("dynamicTableMulti__"+name);
+  if(!raw){ alert("找不到資料！"); refreshNameOptions(); return; }
+  try{
+    const obj = JSON.parse(raw);
+    buildMultiTables(obj.configs);
+    alert("已載入「"+name+"」");
+  }catch(e){
+    alert("資料格式錯誤！");
+  }
+}
+// 修正 loadMultiWorking：根據 loadSelect 選取的值搭配 LIST_KEY 取得資料
+function loadMultiWorking() {
+  const sel = document.getElementById("loadSelect");
+  if(!sel){
+    document.getElementById("tableWrap").textContent = "(找不到選擇器)";
+    return;
+  }
+  const name = sel.value;
+  if(!name){
+    document.getElementById("tableWrap").textContent = "(請先選擇檔案)";
+    return;
+  }
+  const raw = localStorage.getItem("dynamicTableMulti__"+name);
+  if (!raw) {
+    document.getElementById("tableWrap").textContent = "(尚無資料)";
+    return;
+  }
+  let obj;
+  try {
+    obj = JSON.parse(raw);
+  } catch(e) {
+    document.getElementById("tableWrap").textContent = "(資料格式錯誤)";
+    return;
+  }
+  if (!obj.configs || !Array.isArray(obj.configs)) {
+    document.getElementById("tableWrap").textContent = "(資料格式錯誤)";
+    return;
+  }
+  buildMultiTables(obj.configs);
+}
+// 初始化下拉選單與讀取按鈕
+(function(){
+  document.addEventListener("DOMContentLoaded", () => {
+    refreshNameOptions();
+    let loadBtn = document.getElementById("loadBtn");
+    if(!loadBtn){
+      loadBtn = document.createElement("button");
+      loadBtn.id = "loadBtn";
+      loadBtn.textContent = "📂 讀取";
+      const controls = document.getElementById("controls");
+      if(controls) controls.appendChild(loadBtn);
+    }
+    loadBtn.onclick = loadFromLocal;
+  });
+})();
     </script>
   </body>
 </html>

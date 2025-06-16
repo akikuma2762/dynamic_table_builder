@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>動態欄位表格產生器 v7 ‑ 多表格 (Auto‑Scroll + Row‑Swap Alert)</title>
     <style>
+      html,
+      body {
+        overscroll-behavior: contain;
+      } /* 防止拖曳時彈出邊界 */
       /* —— 基本排版 —— */
       body {
         font-family: Arial, "Noto Sans TC", sans-serif;
@@ -168,6 +172,10 @@
         padding: 4px;
         margin-top: 12px;
       }
+      .dataRowsDetail {
+        overflow: auto;
+        max-height: 300px;
+      }
     </style>
   </head>
   <body>
@@ -183,13 +191,41 @@
       <label><input type="checkbox" id="mergeTables" /> 合併表格</label>
     </fieldset>
     <div id="tablesConfig"></div>
-    <button id="generateBtn">產生表格</button>
-    <button id="saveBtn">儲存至本機</button>
-    <button id="loadBtn">讀取本機</button>
+    
+    <fieldset>
+      <button id="generateBtn">產生表格</button>
+    <legend>儲存 / 讀取</legend>
+    <input id="saveName" type="text" placeholder="請輸入名稱…" />
+    <button id="saveBtn">💾 儲存</button>
+    <select id="loadSelect"><option value="">-- 選擇檔案 --</option></select>
+    <button id="loadBtn">📂 讀取</button>
+  </fieldset>
 
     <div id="table-output-wrapper"><div id="table-output"></div></div>
 
     <script>
+const LIST_KEY = "dynamicTableMulti__names";           // 儲存所有名稱清單 (JSON array)
+
+
+
+// 讀取清單
+    function getNameList(){
+      try{ return JSON.parse(localStorage.getItem(LIST_KEY)) || []; }
+      catch(e){ return []; }
+    }
+    function setNameList(arr){ localStorage.setItem(LIST_KEY, JSON.stringify(arr)); }
+
+    function refreshNameOptions(selId=""){
+      const sel = document.getElementById("loadSelect");
+      sel.innerHTML = '<option value="">-- 選擇檔案 --</option>';
+      getNameList().forEach(n=>{
+        const o=document.createElement("option");
+        o.value=o.textContent=n;
+        if(n===selId) o.selected=true;
+        sel.appendChild(o);
+      });
+    }
+
       /********** 工具 **********/
       const qs = (s, sc = document) => sc.querySelector(s);
       const contrast = (hex) => {
@@ -202,10 +238,11 @@
       /********** 全域狀態 **********/
       let tableConfigs = [];
       let scrollEl = null; // 目前 auto‑scroll 的目標
+      let dragging = false; // 是否處於拖曳狀態
 
       /********** 參數 **********/
-      const SCROLL_EDGE = 100; // 邊緣感應距離
-      const SCROLL_STEP = 100; // 每次捲動量
+      const SCROLL_EDGE = 80; // 邊緣感應距離
+      const SCROLL_STEP = 50; // 每次捲動量
 
       /********** 捲動輔助 **********/
       function getScrollParent(node) {
@@ -216,20 +253,63 @@
         }
         return document.scrollingElement || document.documentElement;
       }
-      function autoScroll(e) {
-        if (!scrollEl) return;
-        const rect = scrollEl.getBoundingClientRect();
-        if (e.clientY < rect.top + SCROLL_EDGE)
-          scrollEl.scrollBy(0, -SCROLL_STEP);
-        else if (e.clientY > rect.bottom - SCROLL_EDGE)
-          scrollEl.scrollBy(0, SCROLL_STEP);
+      function clampScroll(el, newTop) {
+        const max = el.scrollHeight - el.clientHeight;
+        el.scrollTop = Math.max(0, Math.min(max, newTop));
       }
-      function wheelDuringDrag(ev) {
-        if (scrollEl) {
-          ev.preventDefault();
-          scrollEl.scrollBy({ top: ev.deltaY, left: 0 });
+      function autoScroll(e) {
+        if (!dragging || !scrollEl) return;
+        const rect = scrollEl.getBoundingClientRect
+          ? scrollEl.getBoundingClientRect()
+          : { top: 0, bottom: window.innerHeight };
+        if (e.clientY < rect.top + SCROLL_EDGE) {
+          // 上方
+          if (
+            scrollEl === document.scrollingElement ||
+            scrollEl === document.documentElement
+          ) {
+            clampScroll(scrollEl, scrollEl.scrollTop - SCROLL_STEP);
+          } else {
+            scrollEl.scrollBy(0, -SCROLL_STEP);
+          }
+        } else if (e.clientY > rect.bottom - SCROLL_EDGE) {
+          // 下方
+          if (
+            scrollEl === document.scrollingElement ||
+            scrollEl === document.documentElement
+          ) {
+            clampScroll(scrollEl, scrollEl.scrollTop + SCROLL_STEP);
+          } else {
+            scrollEl.scrollBy(0, SCROLL_STEP);
+          }
         }
       }
+      function wheelDuringDrag(ev) {
+        if (dragging && scrollEl) {
+          ev.preventDefault();
+          if (
+            scrollEl === document.scrollingElement ||
+            scrollEl === document.documentElement
+          ) {
+            clampScroll(scrollEl, scrollEl.scrollTop + ev.deltaY);
+          } else {
+            scrollEl.scrollBy({ top: ev.deltaY });
+          }
+        }
+      }
+
+      /********** 限制拖曳超出視窗 **********/
+      function restrictDragViewport(ev) {
+        if (!dragging) return;
+        const x = ev.clientX,
+          y = ev.clientY;
+        if (x < 0) {
+          window.scrollBy(-SCROLL_STEP, 0);
+        } else if (x > window.innerWidth) {
+          window.scrollBy(SCROLL_STEP, 0);
+        }
+        autoScroll(ev);
+      } // 水平方向亦加入嘗試捲動
 
       /********** INIT **********/
       window.addEventListener("load", () => {
@@ -238,7 +318,19 @@
         qs("#generateBtn").addEventListener("click", generateTables);
         qs("#saveBtn").addEventListener("click", saveToLocal);
         qs("#loadBtn").addEventListener("click", loadFromLocal);
+        refreshNameOptions();
         buildTableConfigs();
+        document.addEventListener("dragover", autoScroll); // 觸發自動捲動
+        document.addEventListener("wheel", wheelDuringDrag, { passive: false }); // 拖曳時滾輪也能捲
+        document.addEventListener("drag", restrictDragViewport); // 限制超邊界
+        document.addEventListener("dragstart", () => {
+          dragging = true;
+          scrollEl = getScrollParent(event.target);
+        });
+        document.addEventListener("dragend", () => {
+          dragging = false;
+          scrollEl = null;
+        });
       });
 
       /********** Build Config UI **********/
@@ -302,6 +394,10 @@
           colspan: 1,
           rowspan: 1,
           width: "",
+          align: "left",
+          color: "#000000",
+          size: 16,
+          indexed: false,
         });
         renderHeaderCells(t, r);
         buildDataRowsUI(t);
@@ -334,7 +430,11 @@
             cell.rowspan
           }" oninput="updateHeaderCell(${t},${r},${i},'rowspan',+this.value)"></label><label><div class="title">寬度比例</div><input type="number" min="0" value="${
             cell.width
-          }" oninput="updateHeaderCell(${t},${r},${i},'width',this.value)"></label><button type="button" class="remove-button" onclick="removeHeaderCell(${t},${r},${i})">移除</button></div>`;
+          }" oninput="updateHeaderCell(${t},${r},${i},'width\',this.value)\"></label><label><div class="title">文字對齊</div><select onchange="updateHeaderCell(${t},${r},${i},\'align\',this.value)"><option value="left">靠左</option><option value="center">置中</option><option value="right">靠右</option></select></label><label><div class="title">字體顏色</div><input type="color" value="${
+            cell.color
+          }" onchange="updateHeaderCell(${t},${r},${i},\'color\',this.value)"></label><label><div class="title">字體大小(px)</div><input type="number" min="8" value="${
+            cell.size
+          }" oninput="updateHeaderCell(${t},${r},${i},\'size\',+this.value)"></label><label><div class="title">索引</div><select onchange="updateHeaderCell(${t},${r},${i},'indexed',this.value==='true')"><option value="false">不啟用</option><option value="true">啟用</option></select></label><button type="button" class="remove-button" onclick="removeHeaderCell(${t},${r},${i})">移除</button></div>`;
           const hdr = d.querySelector(".cell-header");
           const btn = d.querySelector(".collapse-btn");
           hdr.addEventListener("click", () => {
@@ -363,6 +463,10 @@
                   text: cell.text,
                   en: cell.en,
                   width: cell.width,
+                  align: cell.align,
+                  color: cell.color,
+                  size: cell.size,
+                  indexed: cell.indexed,
                 };
               }
             }
@@ -471,7 +575,12 @@
           const cc = document.createElement("div");
           cc.className = "cell-config collapsed";
           const label = leaf[i]?.text || "欄位名稱";
-          cc.innerHTML = `<div class="cell-header"><span>${label}</span><button type="button" class="collapse-btn">+</button></div><div class="body"><label><div class="title">${label}</div><textarea oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].text=this.value;this.style.height='auto';this.style.height=this.scrollHeight+'px';">${cell.text}</textarea></label><label><div class="title">合併欄</div><input type="number" min="1" value="${cell.colspan}" oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].colspan=+this.value"></label><label><div class="title">合併列</div><input type="number" min="1" value="${cell.rowspan}" oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].rowspan=+this.value"></label></div>`;
+          // 若為索引欄，顯示排序數字且 disabled
+          let cellContent = '';
+         
+            cellContent = `<label><div class="title">${label}</div><textarea oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].text=this.value;this.style.height='auto';this.style.height=this.scrollHeight+'px';">${cell.text||''}</textarea></label>`;
+          
+          cc.innerHTML = `<div class="cell-header"><span>${label}</span><button type="button" class="collapse-btn">+</button></div><div class="body">${cellContent}<label><div class="title">合併欄</div><input type="number" min="1" value="${cell.colspan||1}" oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].colspan=+this.value"></label><label><div class="title">合併列</div><input type="number" min="1" value="${cell.rowspan||1}" oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].rowspan=+this.value"></label><label><div class="title">文字對齊</div><select onchange="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].align=this.value"><option value="left"${cell.align==="left"?" selected":""}>靠左</option><option value="center"${cell.align==="center"?" selected":""}>置中</option><option value="right"${cell.align==="right"?" selected":""}>靠右</option></select></label><label><div class="title">字體顏色</div><input type="color" value="${cell.color||'#000000'}" onchange="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].color=this.value"></label><label><div class="title">字體大小(px)</div><input type="number" min="8" value="${cell.size||16}" oninput="tableConfigs[${t}].dataRowsCfg[${r}].cells[${i}].size=+this.value"></label></div>`;
           const hdr = cc.querySelector(".cell-header");
           const btn = cc.querySelector(".collapse-btn");
           hdr.addEventListener("click", () => {
@@ -495,12 +604,16 @@
 
       /********** Build HTML Table for Preview **********/
       function buildTbody(cfg, defaultBg) {
-        const leaf = getLeaf(cfg),
-          cols = leaf.length,
-          rows = cfg.dataRowsCfg.length;
+        const leaf = getLeaf(cfg);
+        const indexColumns = leaf
+          .map((l, i) => (l.indexed ? i : null))
+          .filter((i) => i !== null);
+        let indexCounter = 1;
+        const cols = leaf.length, rows = cfg.dataRowsCfg.length;
         const occ = Array.from({ length: rows }, () => Array(cols).fill(false));
         let out = "";
         for (let r = 0; r < rows; r++) {
+          let rowIndexed = false;
           const bg = cfg.dataRowsCfg[r].color || defaultBg;
           const txt = contrast(bg);
           out += `<tr style="background:${bg};color:${txt};">`;
@@ -520,12 +633,25 @@
               cs === 1 && rs === 1 && leaf[c].en
                 ? ` data-column="${leaf[c].en}"`
                 : "";
-            const html = (cell.text || "").replace(/\n/g, "<br>") || "&nbsp;";
-            out += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ""}${
-              rs > 1 ? ` rowspan="${rs}"` : ""
-            }>${html}</td>`;
+
+            let raw = cell.text ?? "";
+            let html = raw.replace(/\n/g, "<br>");
+            if (!html) html = "&nbsp;";
+            // index column auto number
+            if (indexColumns.includes(c) && cs === 1 && rs === 1) {
+              html = indexCounter;
+              rowIndexed = true;
+            }
+            // 新增 cell.style
+            const align = cell.align || "left";
+            const color = cell.color || "";
+            const size = cell.size || 16;
+            out += `<td${data}${cs > 1 ? ` colspan=\"${cs}\"` : ""}${
+              rs > 1 ? ` rowspan=\"${rs}\"` : ""
+            } style=\"text-align:${align};${color?`color:${color};`:""}${size?`font-size:${size}px;`:""}\">${html}</td>`;
           }
-          out += "</tr>";
+          if (rowIndexed) indexCounter++;
+          out += `</tr>`;
         }
         return out;
       }
@@ -554,7 +680,9 @@
                         cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ""
                       }${cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ""}${
                         cell.en ? ` data-column="${cell.en}"` : ""
-                      }>${cell.text || "&nbsp;"}${
+                      } style="text-align:${cell.align};color:${
+                        cell.color
+                      };font-size:${cell.size}px;">${cell.text || "&nbsp;"}${
                         cell.en ? `<br><small>${cell.en}</small>` : ""
                       }</th>`
                   )
@@ -570,34 +698,94 @@
       }
 
       /********** Local Storage **********/
-      function saveToLocal() {
-        localStorage.setItem(
-          "dynamicTableMulti",
-          JSON.stringify({
-            configs: tableConfigs,
-            numTables: +qs("#numTables").value,
-            merge: qs("#mergeTables").checked,
-          })
-        );
-        alert("已保存！");
+      /* === 原 saveToLocal 改寫 === */
+    function saveToLocal(){
+      const name = document.getElementById("saveName").value.trim();
+      if(!name){ alert("請輸入檔名！"); return; }
+      const key = "dynamicTableMulti__" + name;
+      if(localStorage.getItem(key) && !confirm("已存在同名檔案，是否覆蓋？")) return;
+
+      // ※ 此處 tableConfigs / 其餘狀態與舊版相同
+      const payload = {
+        configs: tableConfigs,
+        numTables: +document.getElementById("numTables").value,
+        merge: document.getElementById("mergeTables").checked
+      };
+      localStorage.setItem(key, JSON.stringify(payload));
+
+      // 更新名稱清單
+      const list = getNameList();
+      if(!list.includes(name)){ list.push(name); setNameList(list); }
+      refreshNameOptions(name);
+      alert("已儲存為「" + name + "」");
+    }
+      /* === 原 loadFromLocal 改寫 === */
+    function loadFromLocal(){
+      const name = document.getElementById("loadSelect").value;
+      if(!name){ alert("請先選擇檔案"); return; }
+      const raw = localStorage.getItem("dynamicTableMulti__"+name);
+      if(!raw){ alert("找不到資料！"); refreshNameOptions(); return; }
+      try{
+        const obj = JSON.parse(raw);
+        document.getElementById("numTables").value = obj.numTables;
+        document.getElementById("mergeTables").checked = obj.merge;
+        tableConfigs = obj.configs;
+        buildTableConfigs();
+        generateTables();
+      }catch(e){
+        alert("資料格式錯誤！");
       }
-      function loadFromLocal() {
-        const raw = localStorage.getItem("dynamicTableMulti");
-        if (!raw) {
-          alert("沒有資料");
-          return;
+    }
+    // 依照詳細資料列區塊內容組成 tableConfigs 物件
+function getCurrentTableConfigsFromDetail() {
+  const configs = [];
+  const tables = document.querySelectorAll('.table-config');
+  tables.forEach((tableBlock, tIdx) => {
+    // 取得 headerRows
+    const headerRows = [];
+    tableBlock.querySelectorAll('.headerRows .row-config').forEach((rowDiv) => {
+      const cells = [];
+      rowDiv.querySelectorAll('.cell-config').forEach((cellDiv) => {
+        const text = cellDiv.querySelector('input[type="text"]')?.value || '';
+        const en = cellDiv.querySelectorAll('input[type="text"]')[1]?.value || '';
+        const colspan = +(cellDiv.querySelector('input[type="number"][min="1"]')?.value || 1);
+        const rowspan = +(cellDiv.querySelectorAll('input[type="number"][min="1"]')[1]?.value || 1);
+        const width = cellDiv.querySelector('input[type="number"][min="0"]')?.value || '';
+        const align = cellDiv.querySelector('select')?.value || 'left';
+        const color = cellDiv.querySelector('input[type="color"]')?.value || '#000000';
+        const size = +(cellDiv.querySelectorAll('input[type="number"]')[2]?.value || 16);
+        const indexed = cellDiv.querySelectorAll('select')[1]?.value === 'true';
+        cells.push({ text, en, colspan, rowspan, width, align, color, size, indexed });
+      });
+      headerRows.push(cells);
+    });
+    // 取得 dataRowsCfg
+    const dataRowsCfg = [];
+    tableBlock.querySelectorAll('.dataRowsDetail .row-config').forEach((rowDiv, rIdx) => {
+      const color = rowDiv.querySelector('input[type="color"]')?.value || '';
+      const cells = [];
+      rowDiv.querySelectorAll('.cell-config').forEach((cellDiv, cIdx) => {
+        // 判斷是否為索引欄
+        const isIndex = headerRows[0]?.[cIdx]?.indexed;
+        let text = '';
+        if (isIndex) {
+          text = String(rIdx + 1);
+        } else {
+          text = cellDiv.querySelector('textarea')?.value || '';
         }
-        try {
-          const obj = JSON.parse(raw);
-          qs("#numTables").value = obj.numTables;
-          qs("#mergeTables").checked = obj.merge;
-          tableConfigs = obj.configs;
-          buildTableConfigs();
-          generateTables();
-        } catch (e) {
-          alert("資料格式錯誤");
-        }
-      }
+        const colspan = +(cellDiv.querySelector('input[type="number"][min="1"]')?.value || 1);
+        const rowspan = +(cellDiv.querySelectorAll('input[type="number"][min="1"]')[1]?.value || 1);
+        const align = cellDiv.querySelector('select')?.value || 'left';
+        const colorCell = cellDiv.querySelector('input[type="color"]')?.value || '#000000';
+        const size = +(cellDiv.querySelectorAll('input[type="number"]')[2]?.value || 16);
+        cells.push({ text, colspan, rowspan, align, color: colorCell, size });
+      });
+      dataRowsCfg.push({ color, cells });
+    });
+    configs.push({ headerRows, dataRowsCfg });
+  });
+  return configs;
+}
     </script>
   </body>
 </html>
