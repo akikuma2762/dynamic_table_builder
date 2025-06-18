@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>暫存 / 完成 區</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* --- 與前版相同的樣式 --- */
+      body {
+        font-family: "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+        margin: 1.5rem;
+      }
+
+      #controls button {
+        margin-right: 0.5rem;
+        padding: 4px 10px;
+      }
+
+      #palette {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border: 1px dashed #999;
+        max-width: 100%;
+      }
+
+      .draggable-item {
+        background: #fffbe6;
+        border: 1px solid #f0c36d;
+        padding: 0.4rem;
+        cursor: grab;
+        width: 420px;
+      }
+
+      .reusable {
+        background: #e1f5fe;
+        border-color: #03a9f4;
+        width: 220px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 1rem;
+      }
+
+      th,
+      td {
+        border: 1px solid #999;
+        padding: 0.6rem;
+        min-height: 44px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f5f5f5;
+      }
+
+      td.drop-hover {
+        background: #c8e6c9;
+      }
+
+      #outputArea,
+      #savedArea {
+        margin-top: 2rem;
+        border: 2px dashed #aaa;
+        padding: 1rem;
+      }
+
+      .saved-block {
+        border: 1px solid #777;
+        padding: 0.5rem;
+        margin-top: 0.8rem;
+      }
+
+      .saved-title {
+        font-weight: bold;
+        margin-bottom: 0.4rem;
+      }
+
+      .buttons-inline > button {
+        margin-right: 0.5rem;
+      }
+
+      textarea {
+        width: 180px;
+        height: 60px;
+        font-family: inherit;
+      }
+
+      .draggable-item textarea {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        overflow-wrap: break-word;
+      }
+
+      .signature {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        align-items: center;
+      }
+
+      .sigCanvas {
+        border: 1px solid #666;
+        background: #fff;
+        width: 100%;
+        height: 60px;
+        touch-action: none;
+      }
+
+      .clearSig {
+        font-size: 0.75rem;
+      }
+
+      #sigModal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      #sigModal .modal-box {
+        background: #fff;
+        padding: 1rem;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      #sigModal canvas {
+        border: 1px solid #333;
+      }
+
+      .draggable-item .del-btn {
+        text-align: end;
+        font-size: 0.8rem;
+        color: #f44336;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      #builderPreview {
+        border: 1px dashed #ccc;
+        padding: 0.5rem;
+        min-height: 40px;
+        background: #fafafa;
+      }
+
+      .row-selected {
+        background: #e3f2fd !important;
+        color: #000 !important;
+      }
+
+      table.preview {
+        text-align: center;
+      }
+
+      /* ----- Palette 分區樣式 ----- */
+      #palette {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .palette-block {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border: 1px dashed #999;
+      }
+
+      .palette-block.native {
+        background: #fffbe6;
+        border-color: #f0c36d;
+      }
+
+      .palette-block.custom {
+        background: #e8fbe9;
+        border-color: #4caf50;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>暫存 / 完成 區</h3>
+    <div id="savedArea"></div>
+    <button id="reloadBtn">重新讀取</button>
+
+    <!-- -------- 簽名 Modal -------- -->
+    <div id="sigModal">
+      <div class="modal-box">
+        <canvas id="modalCanvas" width="400" height="200"></canvas>
+        <div>
+          <button id="modalClear">清除</button
+          ><button id="modalSave">儲存</button
+          ><button id="modalCancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function readJSON(k) {
+        const r = localStorage.getItem(k);
+        return r ? JSON.parse(r) : null;
+      }
+
+      const contrast = (h) => {
+        const r = parseInt(h.substr(1, 2), 16),
+          g = parseInt(h.substr(3, 2), 16),
+          b = parseInt(h.substr(5, 2), 16);
+        return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? "#000" : "#fff";
+      };
+
+      const uid = () => `id_${Math.random().toString(36).slice(2, 10)}`;
+
+      /* ===== leaf ===== */
+      function leafCols(hRows) {
+        const R = hRows.length,
+          g = [];
+        for (let r = 0; r < R; r++) {
+          g[r] ??= [];
+          let c = 0;
+          hRows[r].forEach((cell) => {
+            while (g[r][c]) c++;
+            const cs = +cell.colspan || 1,
+              rs = +cell.rowspan || 1;
+            for (let rr = 0; rr < rs; rr++)
+              for (let cc = 0; cc < cs; cc++) {
+                g[r + rr] ??= [];
+                g[r + rr][c + cc] = cell;
+              }
+            c++;
+          });
+        }
+        return g[R - 1] || [];
+      }
+
+      function enableDrag(tbl) {
+        tbl.addEventListener("dragover", (e) => {
+          if (e.target.tagName === "TD") {
+            e.preventDefault();
+            e.target.classList.add("drop-hover");
+          }
+        });
+        tbl.addEventListener("dragleave", (e) => {
+          if (e.target.tagName === "TD")
+            e.target.classList.remove("drop-hover");
+        });
+        tbl.addEventListener("drop", (e) => {
+          if (e.target.tagName !== "TD") return;
+          e.preventDefault();
+          e.target.classList.remove("drop-hover");
+          const id = e.dataTransfer.getData("text/plain");
+          const src = document.getElementById(id);
+          if (!src) return;
+          if (e.target.firstChild && !confirm("覆蓋此格？")) return;
+          const el = src.classList.contains("reusable")
+            ? src.cloneNode(true)
+            : src;
+          el.id = "";
+          el.draggable = false;
+          el.style.cursor = "default";
+          /* ★ 若格子內含刪除鈕，點一下就把整格內容清掉 */
+          const del = el.querySelector(".del-btn");
+          if (del) {
+            del.onclick = (ev) => {
+              ev.stopPropagation();
+              const td = del.closest("td");
+              if (td) td.innerHTML = "&nbsp;"; // 變回空白格
+            };
+          }
+
+          e.target.innerHTML = "";
+          e.target.appendChild(el);
+          initSignature(el);
+        });
+      }
+
+      function initSignature(holder) {
+        const cvs = holder.querySelector(".sigCanvas");
+        if (!cvs || cvs.dataset.bound) return;
+        cvs.dataset.bound = 1;
+        const ctx = cvs.getContext("2d");
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        let down = false,
+          prev = null;
+        const pos = (e) => {
+          const r = cvs.getBoundingClientRect();
+          return {
+            x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
+            y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top,
+          };
+        };
+        const start = (e) => {
+          down = true;
+          prev = pos(e);
+        };
+        const move = (e) => {
+          if (!down) return;
+          const p = pos(e);
+          ctx.beginPath();
+          ctx.moveTo(prev.x, prev.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          prev = p;
+          e.preventDefault();
+        };
+        cvs.onmousedown = start;
+        cvs.onmousemove = move;
+        window.addEventListener("mouseup", () => (down = false));
+        cvs.ontouchstart = start;
+        cvs.ontouchmove = move;
+        cvs.ontouchend = () => (down = false);
+        holder
+          .querySelector(".clearSig")
+          ?.addEventListener("click", () =>
+            ctx.clearRect(0, 0, cvs.width, cvs.height)
+          );
+        cvs.onclick = () => {
+          if (cvs.draggable === false) {
+            smallCvs = cvs;
+            mCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+            mCtx.drawImage(cvs, 0, 0, modalCanvas.width, modalCanvas.height);
+            sigModal.style.display = "flex";
+          }
+        };
+      }
+
+      function buildTableFromV7(v7, readOnly = false) {
+        const leaf = leafCols(v7.headerRows);
+        console.log("leafCols:", leaf);
+        const colgroup =
+          "<colgroup>" +
+          leaf.map((l) => `<col style="width:${l.width || ""}%;">`).join("") +
+          "</colgroup>";
+        const hBg = "#d9eaff",
+          hColor = contrast(hBg);
+        const thead = v7.headerRows
+          .map(
+            (r) =>
+              "<tr>" +
+              r
+                .map(
+                  (c) =>
+                    `<th${c.colspan > 1 ? ` colspan="${c.colspan}"` : ""}${
+                      c.rowspan > 1 ? ` rowspan="${c.rowspan}"` : ""
+                    }${c.en ? ` data-column="${c.en}"` : ""} 
+                    style="text-align:${c.align || "left"};
+            color:${c.color || "#000"};
+            font-size:${c.size || 16}px;">
+        ${c.text || "&nbsp;"}${c.en ? `<br><small>${c.en}</small>` : ""}</th>`
+                )
+                .join("") +
+              "</tr>"
+          )
+          .join("");
+
+        const rows = v7.dataRowsCfg.length,
+          cols = leaf.length,
+          occ = Array(rows)
+            .fill(0)
+            .map(() => Array(cols).fill(false));
+        const tb = [];
+        for (let r = 0; r < rows; r++) {
+          const bg = v7.dataRowsCfg[r].color || "#ffffff",
+            txt = contrast(bg);
+          let tr = `<tr style="background:${bg};color:${txt};">`;
+          for (let c = 0; c < cols; c++) {
+            if (occ[r][c]) continue;
+            const cell = v7.dataRowsCfg[r].cells[c] || {};
+            let cs = +cell.colspan || 1,
+              rs = +cell.rowspan || 1;
+            if (c + cs > cols) cs = cols - c;
+            if (r + rs > rows) rs = rows - r;
+            for (let rr = 0; rr < rs; rr++)
+              for (let cc = 0; cc < cs; cc++) occ[r + rr][c + cc] = true;
+            const data =
+              cs === 1 && rs === 1 && leaf[c]?.en
+                ? ` data-column="${leaf[c].en}"`
+                : "";
+            // 讀取 cell align/color/size，若無則預設
+            const align = cell.align || "left";
+            const fColor = cell.color || "#000";
+            const fSize = cell.size || 16;
+            const htmlText = cell.text || cell.html || "&nbsp;";
+            tr += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ""}${
+              rs > 1 ? ` rowspan="${rs}"` : ""
+            }
+              style="text-align:${align};color:${fColor};font-size:${fSize}px;">
+              ${htmlText}
+              </td>`;
+          }
+          tr += "</tr>";
+          tb.push(tr);
+        }
+        const tbl = document.createElement("table");
+        tbl.innerHTML = `<style>.preview th{background:${hBg};color:${hColor};}</style>${colgroup}<thead>${thead}</thead><tbody>${tb.join(
+          ""
+        )}</tbody>`;
+        tbl.className = "preview";
+        tbl.id = "mainTable";
+
+        /* ★ 還原 canvas 內容，再決定是否鎖定 */
+        tbl.querySelectorAll("canvas.sigCanvas").forEach((cv) => {
+          const url = cv.getAttribute("data-url");
+          if (url) {
+            const img = new Image();
+            img.onload = () => {
+              cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+            };
+            img.src = url;
+          }
+        });
+
+        if (readOnly) {
+          tbl
+            .querySelectorAll("input,textarea,canvas")
+            .forEach((el) => (el.style.pointerEvents = "none"));
+        } else {
+          tbl.querySelectorAll(".signature").forEach(initSignature);
+          enableDrag(tbl);
+        }
+        return tbl;
+      }
+
+      function attachRowSelect(tbl) {
+        tbl.addEventListener("click", (e) => {
+          const tr = e.target.closest("tr");
+          if (!tr) return;
+          tr.classList.toggle("row-selected"); // 第二次再點會移除底色
+          var result = getSelectedRowsData(tbl); // 預先呼叫一次，確保函式存在
+          console.log("已綁定行選擇功能，點選行可切換選中狀態。");
+          console.log("選中行資料：", result); // 初始時沒有選中行，結果為空陣列
+        });
+      }
+
+      function getSelectedRowsData(tbl) {
+        const rows = [...tbl.querySelectorAll("tr.row-selected")];
+        return rows.map((r) => {
+          const obj = {};
+          r.querySelectorAll("td[data-column]").forEach((td) => {
+            obj[td.dataset.column] = td.innerText.trim();
+          });
+          return obj;
+        });
+      }
+
+      function refreshSavedArea() {
+        const area = document.getElementById("savedArea");
+        if (!area) return;
+        // 保留預覽區塊與下拉選單、按鈕
+        const previewBlock = area.querySelector('.preview-block');
+        const previewSelect = document.getElementById('previewSelect');
+        const previewLoadBtn = document.getElementById('previewLoadBtn');
+        area.innerHTML = "";
+        if (previewSelect) area.appendChild(previewSelect);
+        if (previewLoadBtn) area.appendChild(previewLoadBtn);
+        if (previewBlock) area.appendChild(previewBlock);
+
+        // 取得目前選取的預覽名稱
+        const sel = document.getElementById("previewSelect");
+        const previewName = sel && sel.value ? sel.value : null;
+        if (!previewName) return;
+        // 讀取 dynamicTableMultiPreview__{name} 資料
+        const raw = localStorage.getItem("dynamicTableMultiPreview__" + previewName);
+        console.log("讀取預覽資料：", raw);
+        let previewData = null;
+        if (raw) {
+          try { previewData = JSON.parse(raw); } catch (e) { previewData = null; }
+        }
+        if (!previewData || !Array.isArray(previewData.configs)) return;
+
+        // 暫存區（可編輯）
+        const wrap = document.createElement("div");
+        wrap.className = "saved-block";
+        wrap.innerHTML = '<div class="saved-title">暫存版 (可編輯)</div>';
+        // 新增「修改」與「完成」按鈕
+        const btnBar = document.createElement("div");
+        btnBar.className = "buttons-inline";
+        const btnEdit = document.createElement("button");
+        btnEdit.textContent = "修改";
+        const btnFinish = document.createElement("button");
+        btnFinish.textContent = "完成";
+        btnBar.appendChild(btnEdit);
+        btnBar.appendChild(btnFinish);
+        wrap.appendChild(btnBar);
+        // 表格內容
+        previewData.configs.forEach((v7, idx) => {
+          const tbl = buildTableFromV7(v7, false);
+          wrap.appendChild(tbl);
+          tbl.querySelectorAll(".signature").forEach(initSignature);
+        });
+        area.appendChild(wrap);
+        // 修改按鈕
+        let isEditing = true;
+        btnEdit.onclick = () => {
+          if (!isEditing) {
+            // 切回可編輯
+            [...wrap.querySelectorAll("table")].forEach(tbl => {
+              tbl.querySelectorAll("input,textarea,canvas").forEach(el => (el.style.pointerEvents = ""));
+              tbl.querySelectorAll(".signature").forEach(initSignature);
+              enableDrag(tbl);
+            });
+            btnEdit.textContent = "儲存修改";
+            btnFinish.disabled = false;
+            isEditing = true;
+          } else {
+            // 儲存修改（但不切唯讀）
+            const tables = [...wrap.querySelectorAll("table")];
+            let obj = {};
+            const raw = localStorage.getItem("dynamicTableMultiPreview__" + previewName);
+            if (raw) {
+              try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
+            }
+            const multi = { configs: tables.map((tbl, idx) => domToV7(tbl, obj.configs ? obj.configs[idx]?.headerRows : [])) };
+            localStorage.setItem("dynamicTableMultiPreview__" + previewName, JSON.stringify(multi));
+            alert("已儲存修改");
+            btnEdit.textContent = "修改";
+            isEditing = false;
+          }
+        };
+        // 完成按鈕：將目前畫面內容存回 dynamicTableMultiPreview__{name} 並切唯讀
+        btnFinish.onclick = () => {
+          const tables = [...wrap.querySelectorAll("table")];
+          let obj = {};
+          const raw = localStorage.getItem("dynamicTableMultiPreview__" + previewName);
+          if (raw) {
+            try { obj = JSON.parse(raw); } catch (e) { obj = {}; }
+          }
+          const multi = { configs: tables.map((tbl, idx) => domToV7(tbl, obj.configs ? obj.configs[idx]?.headerRows : [])) };
+          localStorage.setItem("dynamicTableMultiPreview__" + previewName, JSON.stringify(multi));
+          // 只針對完成版區塊（finWrap）切唯讀
+          if (finWrap) {
+            finWrap.querySelectorAll("table").forEach(tbl => {
+              tbl.querySelectorAll("input,textarea,canvas").forEach(el => (el.style.pointerEvents = "none"));
+            });
+          }
+          btnFinish.disabled = true;
+          btnEdit.textContent = "修改";
+          isEditing = false;
+          alert("已完成並切換為唯讀");
+          refreshSavedArea();
+        };
+
+        // 完成區（唯讀）
+        const finWrap = document.createElement("div");
+        finWrap.className = "saved-block";
+        finWrap.innerHTML = '<div class="saved-title">完成版 (唯讀)</div>';
+        previewData.configs.forEach((v7, idx) => {
+          const tbl = buildTableFromV7(v7, true);
+          finWrap.appendChild(tbl);
+          // 參考 inspection_form_saved_area.html 的唯讀處理
+          tbl.querySelectorAll("input,textarea").forEach(el => el.disabled = true);
+          tbl.querySelectorAll("canvas").forEach(el => el.style.pointerEvents = "none");
+          tbl.style.pointerEvents = ""; // 解除整表鎖定，僅鎖定互動元件
+          tbl.addEventListener("click", attachRowSelect(tbl));
+        });
+        area.appendChild(finWrap);
+      }
+
+      // ===== 多表格下拉選單與讀取 dynamicTableMultiPreview__ 相關資料 =====
+const PREVIEW_LIST_KEY = "dynamicTableMultiPreview__names";
+function getPreviewNameList(){
+  try{ return JSON.parse(localStorage.getItem(PREVIEW_LIST_KEY)) || []; }
+  catch(e){ return []; }
+}
+function refreshPreviewNameOptions(selId=""){
+  let sel = document.getElementById("previewSelect");
+  if(!sel){
+    sel = document.createElement("select");
+    sel.id = "previewSelect";
+    sel.innerHTML = '<option value="">-- 選擇預覽檔案 --</option>';
+    const area = document.getElementById("savedArea");
+    if(area) area.prepend(sel);
+  }
+  sel.innerHTML = '<option value="">-- 選擇預覽檔案 --</option>';
+  getPreviewNameList().forEach(n=>{
+    const o=document.createElement("option");
+    o.value=o.textContent=n;
+    if(n===selId) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+function loadPreviewFromLocal(){
+  const sel = document.getElementById("previewSelect");
+  if(!sel){ alert("找不到選擇器"); return; }
+  const name = sel.value;
+  if(!name){ alert("請先選擇檔案"); return; }
+  const raw = localStorage.getItem("dynamicTableMultiPreview__"+name);
+  console.log("載入預覽資料：", raw);
+  if(!raw){ alert("找不到資料！"); refreshPreviewNameOptions(); return; }
+  try{
+    // 直接刷新整個暫存/完成區
+    refreshSavedArea();
+    alert("已載入預覽「"+name+"」");
+  }catch(e){
+    alert("資料格式錯誤！");
+  }
+}
+// 初始化下拉選單與讀取按鈕
+(function(){
+  document.addEventListener("DOMContentLoaded", () => {
+    refreshPreviewNameOptions();
+    let loadBtn = document.getElementById("previewLoadBtn");
+    if(!loadBtn){
+      loadBtn = document.createElement("button");
+      loadBtn.id = "previewLoadBtn";
+      loadBtn.textContent = "📂 載入預覽";
+      const area = document.getElementById("savedArea");
+      if(area) area.prepend(loadBtn);
+    }
+    loadBtn.onclick = loadPreviewFromLocal;
+    // 重新讀取按鈕移到載入預覽旁
+    let reloadBtn = document.getElementById("reloadBtn");
+    if(reloadBtn){
+      reloadBtn.parentNode && reloadBtn.parentNode.removeChild(reloadBtn);
+      loadBtn.insertAdjacentElement('afterend', reloadBtn);
+      reloadBtn.onclick = loadPreviewFromLocal;
+    }
+  });
+})();
+
+      // domToV7 需改為讀取 dynamicTableMultiPreview__ 下的 headerRows
+function domToV7(tbl, headerRows) {
+        // headerRows 由呼叫端傳入，已由 dynamicTableMultiPreview__ 取得
+        const cols = leafCols(headerRows).length;
+        const tdToHtml = (td) => {
+          const clone = td.cloneNode(true);
+          clone.querySelectorAll("input[type=checkbox]").forEach((inp) => {
+            inp.checked
+              ? inp.setAttribute("checked", "")
+              : inp.removeAttribute("checked");
+            inp.disabled = false;
+          });
+          clone.querySelectorAll("textarea").forEach((t) => {
+            t.textContent = t.value;
+          });
+          clone.querySelectorAll("input[type=text]").forEach((inp) => {
+            inp.setAttribute("value", inp.value);
+          });
+          clone.querySelectorAll(".del-btn").forEach((btn) => btn.remove());
+          const srcCanv = [...td.querySelectorAll("canvas.sigCanvas")];
+          const dstCanv = [...clone.querySelectorAll("canvas.sigCanvas")];
+          srcCanv.forEach((src, i) => {
+            const url = src.toDataURL();
+            dstCanv[i].setAttribute("data-url", url);
+          });
+          return clone.innerHTML || "&nbsp;";
+        };
+        const body = [...tbl.querySelectorAll("tbody tr")].map((tr) => {
+          const row = { color: "", cells: [] };
+          let ci = 0;
+          [...tr.children].forEach((td) => {
+            const cs = td.colSpan || 1,
+              rs = td.rowSpan || 1;
+            // 讀取 align/color/size
+            const style = window.getComputedStyle(td);
+            const align = td.style.textAlign || style.textAlign || "left";
+            const color = td.style.color || style.color || "#000";
+            let size = td.style.fontSize || style.fontSize || "16px";
+            if (typeof size === "string" && size.endsWith("px")) size = size.replace("px", "");
+            size = parseInt(size) || 16;
+            row.cells[ci] = {
+              text: tdToHtml(td),
+              colspan: cs,
+              rowspan: rs,
+              align,
+              color,
+              size
+            };
+            for (let i = 1; i < cs; i++)
+              row.cells[ci + i] = { text: "", colspan: 1, rowspan: 1, align, color, size };
+            ci += cs;
+          });
+          while (row.cells.length < cols)
+            row.cells.push({ text: "", colspan: 1, rowspan: 1, align: "left", color: "#000", size: 16 });
+          return row;
+        });
+        return { headerRows, dataRowsCfg: body };
+      }
+
+      document.getElementById("reloadBtn").onclick = refreshSavedArea;
+      refreshSavedArea();
+    </script>
+  </body>
+</html>
