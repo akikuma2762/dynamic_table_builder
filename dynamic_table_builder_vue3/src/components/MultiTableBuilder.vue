@@ -136,7 +136,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, watch, reactive } from 'vue'
+import { ref, reactive } from 'vue'
 import type { TableConfig, HeaderCell, DataCell, DataRow } from '../types/table'
 
 const numTables = ref(1)

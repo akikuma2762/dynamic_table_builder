@@ -209,7 +209,10 @@ function onTableDrop(e: DragEvent, tableIdx: number) {
   } else if (item.component === 'PaletteTextarea') {
     cell.value = { type: 'textarea', props: { text: '', placeholder: item.props.placeholder || '' } }
     html = `<div class='draggable-item reusable'><textarea placeholder='${item.props.placeholder}'></textarea><div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
-  } else if (item.component === 'PaletteSignature') {
+  }else if (item.component === 'PaletteInputText') {
+  cell.value = { type: 'inputText', props: { value: '', placeholder: item.props.placeholder || '' } }
+  html = `<div class='draggable-item reusable'><input type='text' placeholder='${item.props.placeholder}' /><div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
+  }else if (item.component === 'PaletteSignature') {
     cell.value = { type: 'signature', props: {} }
     cell.text = ''
   } else if (item.html) {
