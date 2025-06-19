@@ -73,8 +73,58 @@
       </div>
     </div>
     <h4>預覽區：</h4>
-    <div id="outputArea" style="pointer-events: none; user-select: text;">
-      <div v-if="previewHtml" v-html="previewHtml"></div>
+    <div id="outputArea">
+      <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
+        <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
+        <table :class="'tbl-' + idx" class="preview">
+          <thead>
+            <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
+              <th v-for="(cell, cIdx) in row" :key="cIdx"
+                :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+                :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+                :style="`text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;`"
+              >
+                {{ cell.text || '\u00A0' }}<template v-if="cell.en"><br><small>{{ cell.en }}</small></template>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, rIdx) in cfg.dataRowsCfg" :key="rIdx"
+              :style="{
+                background: row.color || cfg.dataBg || '#fff',
+                color: getContrastColor(row.color || cfg.dataBg || '#fff')
+              }"
+            >
+              <template v-for="(cell, cIdx) in row.cells">
+                <td
+                  v-if="!isCellCovered(rIdx, cIdx, cfg)"
+                  :key="cIdx"
+                  :data-row="rIdx"
+                  :data-col="cIdx"
+                  v-bind="(cell.colspan === 1 && cell.rowspan === 1 && getLeaf(cfg)[cIdx]?.en) ? { 'data-column': getLeaf(cfg)[cIdx].en } : {}"
+                  :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+                  :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+                  :style="`text-align:${cell.align};${cell.color ? `color:${cell.color};` : ''}${cell.size ? `font-size:${cell.size}px;` : ''}min-width:120px;min-height:44px;`"
+                >
+                  <template v-if="cell.value && cell.value.type === 'signature'">
+                    <PaletteSignature
+                      v-bind="{ ...cell.value.props, imageData: cell.value.props?.imageData }"
+                      :modalOnClick="true"
+                      @update:imageData="img => updateSignature(cfg, rIdx, cIdx, img)"
+                    />
+                  </template>
+                  <template v-else-if="cell.text && cell.text.trim() !== ''">
+                    <span v-html="stripPaletteHtml(cell.text)"></span>
+                  </template>
+                  <template v-else>
+                    &nbsp;
+                  </template>
+                </td>
+              </template>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
     <div>
       <input v-model="savePreviewName" placeholder="輸入檔名以儲存預覽表格" />
@@ -154,8 +204,10 @@ function onTableDrop(e: DragEvent, tableIdx: number) {
   // 產生 palette HTML + 刪除鈕
   let html = ''
   if (item.component === 'PaletteCheckbox') {
+    cell.value = { type: 'checkbox', props: { checked: false, label: item.props.label || '勾選' } }
     html = `<div class='draggable-item reusable'><label><input type='checkbox' /> ${item.props.label}</label><div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
   } else if (item.component === 'PaletteTextarea') {
+    cell.value = { type: 'textarea', props: { text: '', placeholder: item.props.placeholder || '' } }
     html = `<div class='draggable-item reusable'><textarea placeholder='${item.props.placeholder}'></textarea><div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
   } else if (item.component === 'PaletteSignature') {
     cell.value = { type: 'signature', props: {} }
@@ -225,6 +277,17 @@ function preview() {
   // 移除 draggable-item reusable 父元素與 del-btn
   const temp = document.createElement('div')
   temp.innerHTML = html
+  // 將 PaletteSignature canvas 轉為 <img> 匯出
+  temp.querySelectorAll('.draggable-item.reusable').forEach(el => {
+    const sigCanvas = el.querySelector('canvas')
+    if (sigCanvas && sigCanvas.toDataURL) {
+      const img = document.createElement('img')
+      img.src = sigCanvas.toDataURL('image/png')
+      img.style.maxWidth = '100%'
+      el.innerHTML = ''
+      el.appendChild(img)
+    }
+  })
   // 移除所有 del-btn
   temp.querySelectorAll('.del-btn').forEach(el => el.remove())
   // 展開所有 draggable-item.reusable，保留其內容
@@ -279,6 +342,10 @@ function buildTbody(cfg: TableConfig, defaultBg: string) {
       const data = cs === 1 && rs === 1 && leaf[c].en ? ` data-column="${leaf[c].en}"` : ''
       let raw = cell.text ?? ''
       let html = raw.replace(/\n/g, '<br>')
+      // 若為簽名欄，直接產生 <img>
+      if (cell.value && cell.value.type === 'signature' && cell.value.props?.imageData) {
+        html = `<img src="${cell.value.props.imageData}" style="max-width:100%;max-height:60px;" />`
+      }
       if (!html) html = '&nbsp;'
       if (indexColumns.includes(c) && cs === 1 && rs === 1) {
         html = String(indexCounter)
@@ -287,8 +354,7 @@ function buildTbody(cfg: TableConfig, defaultBg: string) {
       const align = cell.align || 'left'
       const color = cell.color || ''
       const size = cell.size || 16
-      // 新增 data-row, data-col 屬性
-      out += `<td data-row="${r}" data-col="${c}"${data}${cs > 1 ? ` colspan=\"${cs}\"` : ''}${rs > 1 ? ` rowspan=\"${rs}\"` : ''} style=\"text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}\"\n        ondragenter=\"cellDragEnter(event)\"\n        ondragleave=\"cellDragLeave(event)\"\n        ondragover=\"cellDragOver(event)\"\n      >${html}</td>`
+      out += `<td data-row="${r}" data-col="${c}"${data}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''} style="text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}">${html}</td>`
     }
     if (rowIndexed) indexCounter++
     out += `</tr>`
@@ -354,6 +420,18 @@ function cellDrop(e: DragEvent) {
   onTableDrop(e, Number(td?.closest('.table-block')?.querySelector('table')?.className.match(/tbl-(\d+)/)?.[1]));
 }
 
+// 新增：過濾 palette HTML 標籤
+function stripPaletteHtml(html: string): string {
+  if (!html) return ''
+  return html
+    .replace(/<div class=['"]draggable-item reusable['"][^>]*>/g, '')
+    .replace(/<div class=["']draggable-item reusable["'][^>]*>/g, '')
+    .replace(/<div class=['"]del-btn['"][^>]*>.*?<\/div>/g, '')
+    .replace(/<div class=["']del-btn["'][^>]*>.*?<\/div>/g, '')
+    .replace(/<div[^>]*>/g, '')
+    .replace(/<\/div>/g, '')
+}
+
 function savePreviewTable() {
   const name = savePreviewName.value.trim()
   if (!name) { alert('請輸入檔名！'); return }
@@ -366,15 +444,7 @@ function savePreviewTable() {
       for (const cell of row.cells) {
         if (typeof cell.text === 'string') {
           // 移除 draggable-item reusable 區塊與 del-btn
-          cell.text = cell.text
-            .replace(/<div class='draggable-item reusable'[^>]*>/g, '')
-            .replace(/<div class="draggable-item reusable"[^>]*>/g, '')
-            .replace(/<div class=\'draggable-item reusable\'[^>]*>/g, '')
-            .replace(/<div class=\"draggable-item reusable\"[^>]*>/g, '')
-            .replace(/<div class='del-btn'[^>]*>.*?<\/div>/g, '')
-            .replace(/<div class=\'del-btn\'[^>]*>.*?<\/div>/g, '')
-            .replace(/<div class="del-btn"[^>]*>.*?<\/div>/g, '')
-            .replace(/<div class=\"del-btn\"[^>]*>.*?<\/div>/g, '')
+          cell.text = stripPaletteHtml(cell.text)
         }
       }
     }

@@ -152,18 +152,20 @@ onMounted(() => {
 
   // Modal canvas（需等 DOM 更新完畢）
   nextTick(() => {
-    console.log('[PaletteSignature] nextTick modalCanvas', modalCanvas.value)
+    //console.log('[PaletteSignature] nextTick modalCanvas', modalCanvas.value)
     if (modalCanvas.value) {
       modalCtx = modalCanvas.value.getContext('2d')
       modalCtx!.lineWidth = 2
       modalCtx!.lineCap = 'round'
 
       const m = modalCanvas.value
-      m.addEventListener('mousedown', (e) => { console.log('[PaletteSignature] modal mousedown'); start(e, m) })
+      m.addEventListener('mousedown', (e) => { //console.log('[PaletteSignature] modal mousedown');
+       start(e, m) })
       m.addEventListener('mousemove', (e) => move(e, m, modalCtx))
       window.addEventListener('mouseup', stop)
 
-      m.addEventListener('touchstart', (e) => { console.log('[PaletteSignature] modal touchstart'); start(e, m) })
+      m.addEventListener('touchstart', (e) => { //console.log('[PaletteSignature] modal touchstart');
+       start(e, m) })
       m.addEventListener('touchmove', (e) => move(e, m, modalCtx))
       window.addEventListener('touchend', stop)
 
@@ -174,7 +176,7 @@ onMounted(() => {
 })
 
 watch(() => props.imageData, (val) => {
-    console.log('Signature imageData updated:', val)
+    //console.log('Signature imageData updated:', val)
   if (val && canvas.value && ctx) {
     const img = new window.Image()
     img.onload = () => {
@@ -195,12 +197,12 @@ watch(() => props.imageData, (val) => {
 
 // Modal 開啟時自動將小 canvas 複製到 modal canvas
 watch(showModal, (val) => {
-  console.log('[PaletteSignature] showModal changed:', val, canvas.value, modalCanvas.value)
+  //console.log('[PaletteSignature] showModal changed:', val, canvas.value, modalCanvas.value)
   if (val && canvas.value) {
     const tryCopy = (retry = 0) => {
       nextTick(() => {
         if (modalCanvas.value) {
-          console.log('[PaletteSignature] modalCanvas ready, copying image')
+          //console.log('[PaletteSignature] modalCanvas ready, copying image')
           const img = new window.Image()
           img.onload = () => {
             modalCtx?.clearRect(0, 0, 400, 160)
@@ -208,7 +210,7 @@ watch(showModal, (val) => {
           }
           img.src = canvas.value!.toDataURL('image/png')
         } else if (retry < 10) {
-          console.log('[PaletteSignature] modalCanvas still null, retry', retry)
+          //console.log('[PaletteSignature] modalCanvas still null, retry', retry)
           setTimeout(() => tryCopy(retry + 1), 30)
         } else {
           console.warn('[PaletteSignature] modalCanvas still null after retries')

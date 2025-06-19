@@ -7,11 +7,72 @@
         <option v-for="n in nameList" :key="n" :value="n">{{ n }}</option>
       </select>
       <button @click="reload">重新讀取</button>
+      <button @click="saveAllChanges" :disabled="!selectedName">儲存所有更動</button>
       <div v-if="tableConfigs.length === 0 && selectedName">（找不到資料或尚未儲存）</div>
       <div v-else-if="tableConfigs.length > 0">
         <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
           <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
-          <div v-html="buildPreviewTable(cfg, idx)"></div>
+          <table :class="'tbl-' + idx" class="preview">
+            <thead>
+              <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
+                <th v-for="(cell, cIdx) in row" :key="cIdx"
+                  :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+                  :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+                  :style="`text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;`"
+                > 
+                  {{ cell.text || '\u00A0' }}<template v-if="cell.en"><br><small>{{ cell.en }}</small></template>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, rIdx) in cfg.dataRowsCfg" :key="rIdx"
+                :style="{
+                  background: row.color || cfg.dataBg || '#fff',
+                  color: getContrastColor(row.color || cfg.dataBg || '#fff')
+                }"
+              >
+                <template v-for="(cell, cIdx) in row.cells">
+                  <td
+                    v-if="!isCellCovered(rIdx, cIdx, cfg)"
+                    :key="cIdx"
+                    :data-row="rIdx"
+                    :data-col="cIdx"
+                    v-bind="(cell.colspan === 1 && cell.rowspan === 1 && getLeaf(cfg)[cIdx]?.en) ? { 'data-column': getLeaf(cfg)[cIdx].en } : {}"
+                    :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+                    :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+                    :style="`text-align:${cell.align};${cell.color ? `color:${cell.color};` : ''}${cell.size ? `font-size:${cell.size}px;` : ''}min-width:120px;min-height:44px;`"
+                  >
+                    <template v-if="cell.value && cell.value.type === 'signature'">
+                      <PaletteSignature
+                        v-bind="{ ...cell.value.props, imageData: cell.value.props?.imageData }"
+                        :modalOnClick="true"
+                        @update:imageData="img => updateSignature(cfg, rIdx, cIdx, img)"
+                      />
+                    </template>
+                    <template v-else-if="cell.value && cell.value.type === 'checkbox'">
+                      <label>
+                        <input type="checkbox" v-model="cell.value.props.checked" />
+                        {{ cell.value.props.label || '勾選' }}
+                      </label>
+                    </template>
+                    <template v-else-if="cell.value && cell.value.type === 'textarea'">
+                      <textarea
+                        v-model="cell.value.props.text"
+                        :placeholder="cell.value.props.placeholder || ''"
+                        style="width:100%;min-height:32px;"
+                      ></textarea>
+                    </template>
+                    <template v-else-if="cell.text && cell.text.trim() !== ''">
+                      <span v-html="stripPaletteHtml(cell.text)"></span>
+                    </template>
+                    <template v-else>
+                      &nbsp;
+                    </template>
+                  </td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -19,10 +80,12 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import PaletteSignature from './PaletteSignature.vue'
+import type { TableConfig } from '../types/table'
 
 const nameList = ref<string[]>([])
 const selectedName = ref('')
-const tableConfigs = ref<any[]>([])
+const tableConfigs = ref<TableConfig[]>([])
 
 function getSavedNameList() {
   try {
@@ -47,72 +110,24 @@ function loadSavedTable() {
     tableConfigs.value = []
   }
 }
-function buildPreviewTable(cfg: any, idx: number) {
-  const hBg = cfg.headerBg || '#e0eaff'
-  const dBg = cfg.dataBg || '#fff'
-  const hColor = getContrastColor(hBg)
-  const leaf = getLeaf(cfg)
-  const colgroup = `<colgroup>${leaf.map((l: any) => `<col style="${l.width ? `width:${l.width}%;` : ''}"></col>`).join('')}</colgroup>`
-  const thead = cfg.headerRows.map((r: any[]) => `<tr>${r.map((cell: any) => `<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''} style=\"text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;\">${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('')
-  const tbody = buildTbody(cfg, dBg)
-  return `<style>.tbl-${idx} th{background:${hBg};color:${hColor};}</style><table class="preview tbl-${idx}">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table>`
-}
-function buildTbody(cfg: any, defaultBg: string) {
-  const leaf = getLeaf(cfg)
-  const indexColumns = leaf.map((l: any, i: number) => l.indexed ? i : null).filter((i: any) => i !== null)
-  let indexCounter = 1
-  const cols = leaf.length, rows = cfg.dataRowsCfg.length
-  const occ = Array.from({ length: rows }, () => Array(cols).fill(false))
-  let out = ''
-  for (let r = 0; r < rows; r++) {
-    let rowIndexed = false
-    const bg = cfg.dataRowsCfg[r].color || defaultBg
-    const txt = getContrastColor(bg)
-    out += `<tr style="background:${bg};color:${txt};">`
-    for (let c = 0; c < cols; c++) {
-      if (occ[r][c]) continue
-      const cell = cfg.dataRowsCfg[r].cells[c]
-      let cs = +cell.colspan || 1, rs = +cell.rowspan || 1
-      if (c + cs > cols) cs = cols - c
-      if (r + rs > rows) rs = rows - r
-      for (let rr = 0; rr < rs; rr++) {
-        for (let cc = 0; cc < cs; cc++) {
-          occ[r + rr][c + cc] = true
-        }
-      }
-      const data = cs === 1 && rs === 1 && leaf[c].en ? ` data-column=\"${leaf[c].en}\"` : ''
-      let raw = cell.text ?? ''
-      let html = raw.replace(/\n/g, '<br>')
-      if (!html) html = '&nbsp;'
-      if (indexColumns.includes(c) && cs === 1 && rs === 1) {
-        html = String(indexCounter)
-        rowIndexed = true
-      }
-      const align = cell.align || 'left'
-      const color = cell.color || ''
-      const size = cell.size || 16
-      out += `<td data-row=\"${r}\" data-col=\"${c}\"${data}${cs > 1 ? ` colspan=\"${cs}\"` : ''}${rs > 1 ? ` rowspan=\"${rs}\"` : ''} style=\"text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}\">${html}</td>`
-    }
-    if (rowIndexed) indexCounter++
-    out += `</tr>`
-  }
-  return out
-}
-function getLeaf(cfg: any) {
+function getLeaf(cfg: TableConfig) {
   const g: any[] = []
   const R = cfg.headerRows.length
   for (let r = 0; r < R; r++) {
     g[r] ??= []
     let c = 0
     cfg.headerRows[r].forEach((cell: any) => {
-      while (g[r][c]) c++
-      const cs = +cell.colspan || 1, rs = +cell.rowspan || 1
-      for (let rr = 0; rr < rs; rr++) {
-        g[r + rr] ??= []
-        for (let cc = 0; cc < cs; cc++) {
-          g[r + rr][c + cc] = cell
+      if (cell.colspan > 1 || cell.rowspan > 1) {
+        for (let i = 0; i < (cell.colspan || 1); i++) {
+          for (let j = 0; j < (cell.rowspan || 1); j++) {
+            g[r + j] ??= []
+            g[r + j][c + i] = g[r + j][c + i] || { en: '', indexed: false }
+          }
         }
+      } else {
+        g[r][c] = g[r][c] || { en: '', indexed: false }
       }
+      if (cell.en) g[r][c].en = cell.en
       c++
     })
   }
@@ -125,5 +140,77 @@ function getContrastColor(hex: string) {
   const b = parseInt(hex.substr(5, 2), 16)
   return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff'
 }
-onMounted(reload)
+function isCellCovered(r: number, c: number, cfg: TableConfig) {
+  const rows = cfg.dataRowsCfg.length
+  const cols = cfg.dataRowsCfg[0].cells.length
+  let occ = Array.from({ length: rows }, () => Array(cols).fill(false))
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      if (occ[i][j]) continue
+      const cell = cfg.dataRowsCfg[i].cells[j]
+      let cs = +cell.colspan || 1, rs = +cell.rowspan || 1
+      for (let rr = 0; rr < rs; rr++) {
+        for (let cc = 0; cc < cs; cc++) {
+          if (rr !== 0 || cc !== 0) occ[i + rr][j + cc] = true
+        }
+      }
+    }
+  }
+  return occ[r][c]
+}
+function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: string) {
+  if (cfg && cfg.dataRowsCfg && cfg.dataRowsCfg[rIdx] && cfg.dataRowsCfg[rIdx].cells[cIdx]) {
+    const cell = cfg.dataRowsCfg[rIdx].cells[cIdx]
+    cell.value = {
+      ...(cell.value || {}),
+      props: { ...(cell.value?.props || {}), imageData: img },
+      imageData: img
+    }
+  }
+}
+function stripPaletteHtml(html: string): string {
+  if (!html) return ''
+  return html
+    .replace(/<div class=['\"]draggable-item reusable['\"][^>]*>/g, '')
+    .replace(/<div class=["']draggable-item reusable["'][^>]*>/g, '')
+    .replace(/<div class=['\"]del-btn['\"][^>]*>.*?<\/div>/g, '')
+    .replace(/<div class=["']del-btn["'][^>]*>.*?<\/div>/g, '')
+    .replace(/<div[^>]*>/g, '')
+    .replace(/<\/div>/g, '')
+}
+function saveAllChanges() {
+  if (!selectedName.value) {
+    alert('請先選擇檔案');
+    return;
+  }
+  const key = 'previewTableMulti__' + selectedName.value;
+  const payload = {
+    configs: tableConfigs.value
+  };
+  console.log('Saving all changes to', key, payload);
+  localStorage.setItem(key, JSON.stringify(payload));
+  alert('已儲存所有更動！');
+}
+onMounted(() => {
+  reload()
+})
 </script>
+<style scoped>
+.table-block {
+  margin-bottom: 2rem;
+}
+.preview {
+  border-collapse: collapse;
+  width: 100%;
+}
+th, td {
+  border: 1px solid #999;
+  padding: 0.6rem;
+  min-height: 44px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #f5f5f5;
+}
+</style>
