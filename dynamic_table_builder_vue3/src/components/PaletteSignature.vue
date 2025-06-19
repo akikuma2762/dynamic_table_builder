@@ -12,7 +12,7 @@
     <button type="button" @click="clearSignature" style="margin-top:2px;">清除</button>
     <!-- Modal 只有 modalOnClick 時才顯示 -->
     <div
-      v-if="showModal && modalOnClick"
+      v-show="showModal && modalOnClick"
       class="sig-modal"
       style="position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;pointer-events:auto;"
       @dragstart.prevent
@@ -47,10 +47,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, defineProps, withDefaults } from 'vue'
+import { ref, onMounted, nextTick, defineProps, withDefaults, watch, defineEmits } from 'vue'
 
-const props = withDefaults(defineProps<{ modalOnClick?: boolean }>(), {
-  modalOnClick: true
+const props = withDefaults(defineProps<{ modalOnClick?: boolean; imageData?: string }>(), {
+  modalOnClick: true,
+  imageData: ''
 })
 
 // Refs to canvases
@@ -67,6 +68,9 @@ let last = { x: 0, y: 0 }
 
 // Modal visibility
 const showModal = ref(false)
+
+// 定義 emit
+const emit = defineEmits(['update:imageData'])
 
 /* ---------- 簽名繪圖邏輯 ---------- */
 function getPos(e: MouseEvent | TouchEvent, target: HTMLCanvasElement) {
@@ -119,6 +123,9 @@ function saveModal() {
   if (canvas.value && modalCanvas.value) {
     ctx?.clearRect(0, 0, 200, 60)
     ctx?.drawImage(modalCanvas.value, 0, 0, 200, 60)
+    // 將 imageData emit 給父層
+    const data = canvas.value.toDataURL('image/png')
+    emit('update:imageData', data)
   }
   showModal.value = false
 }
@@ -145,17 +152,18 @@ onMounted(() => {
 
   // Modal canvas（需等 DOM 更新完畢）
   nextTick(() => {
+    console.log('[PaletteSignature] nextTick modalCanvas', modalCanvas.value)
     if (modalCanvas.value) {
       modalCtx = modalCanvas.value.getContext('2d')
       modalCtx!.lineWidth = 2
       modalCtx!.lineCap = 'round'
 
       const m = modalCanvas.value
-      m.addEventListener('mousedown', (e) => start(e, m))
+      m.addEventListener('mousedown', (e) => { console.log('[PaletteSignature] modal mousedown'); start(e, m) })
       m.addEventListener('mousemove', (e) => move(e, m, modalCtx))
       window.addEventListener('mouseup', stop)
 
-      m.addEventListener('touchstart', (e) => start(e, m))
+      m.addEventListener('touchstart', (e) => { console.log('[PaletteSignature] modal touchstart'); start(e, m) })
       m.addEventListener('touchmove', (e) => move(e, m, modalCtx))
       window.addEventListener('touchend', stop)
 
@@ -163,6 +171,52 @@ onMounted(() => {
       m.addEventListener('dragstart', (e) => e.preventDefault())
     }
   })
+})
+
+watch(() => props.imageData, (val) => {
+    console.log('Signature imageData updated:', val)
+  if (val && canvas.value && ctx) {
+    const img = new window.Image()
+    img.onload = () => {
+      ctx!.clearRect(0, 0, 200, 60)
+      ctx!.drawImage(img, 0, 0, 200, 60)
+    }
+    img.src = val
+  }
+  if (val && modalCanvas.value && modalCtx) {
+    const img = new window.Image()
+    img.onload = () => {
+      modalCtx!.clearRect(0, 0, 400, 160)
+      modalCtx!.drawImage(img, 0, 0, 400, 160)
+    }
+    img.src = val
+  }
+})
+
+// Modal 開啟時自動將小 canvas 複製到 modal canvas
+watch(showModal, (val) => {
+  console.log('[PaletteSignature] showModal changed:', val, canvas.value, modalCanvas.value)
+  if (val && canvas.value) {
+    const tryCopy = (retry = 0) => {
+      nextTick(() => {
+        if (modalCanvas.value) {
+          console.log('[PaletteSignature] modalCanvas ready, copying image')
+          const img = new window.Image()
+          img.onload = () => {
+            modalCtx?.clearRect(0, 0, 400, 160)
+            modalCtx?.drawImage(img, 0, 0, 400, 160)
+          }
+          img.src = canvas.value!.toDataURL('image/png')
+        } else if (retry < 10) {
+          console.log('[PaletteSignature] modalCanvas still null, retry', retry)
+          setTimeout(() => tryCopy(retry + 1), 30)
+        } else {
+          console.warn('[PaletteSignature] modalCanvas still null after retries')
+        }
+      })
+    }
+    tryCopy()
+  }
 })
 </script>
 

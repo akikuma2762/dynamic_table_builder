@@ -89,7 +89,14 @@
                       <button type="button" class="collapse-btn">{{ cell.collapsed ? '+' : '–' }}</button>
                     </div>
                     <div class="body" v-show="!cell.collapsed">
-                      <label><div class="title">內容</div><textarea v-model="cell.text"></textarea></label>
+                      <label>
+                        <div class="title">內容</div>
+                        <textarea
+                          :value="getLeaf(cfg)[ci]?.indexed && (+cell.colspan === 1) && (+cell.rowspan === 1) ? getIndexNumber(cfg, ri, ci) : cell.text"
+                          :disabled="getLeaf(cfg)[ci]?.indexed && (+cell.colspan === 1) && (+cell.rowspan === 1)"
+                          @input="e => { const target = e.target as HTMLTextAreaElement; if (!(getLeaf(cfg)[ci]?.indexed && (+cell.colspan === 1) && (+cell.rowspan === 1))) cell.text = target.value }"
+                        ></textarea>
+                      </label>
                       <label><div class="title">合併欄</div><input type="number" min="1" v-model.number="cell.colspan"></label>
                       <label><div class="title">合併列</div><input type="number" min="1" v-model.number="cell.rowspan"></label>
                       <label><div class="title">文字對齊</div>
@@ -130,13 +137,14 @@
 </template>
 <script setup lang="ts">
 import { ref, watch, reactive } from 'vue'
+import type { TableConfig, HeaderCell, DataCell, DataRow } from '../types/table'
 
 const numTables = ref(1)
 const mergeTables = ref(false)
 const saveName = ref('')
 const loadName = ref('')
 const nameList = ref<string[]>([])
-const tableConfigs = ref<any[]>([])
+const tableConfigs = ref<TableConfig[]>([])
 const previewTables = ref('')
 const rowCollapse = reactive<any>({})
 
@@ -219,20 +227,20 @@ function toggleRowCollapse(tIdx: number, rIdx: number) {
   if (typeof rowCollapse[tIdx][rIdx] !== 'boolean') rowCollapse[tIdx][rIdx] = true
   rowCollapse[tIdx][rIdx] = !rowCollapse[tIdx][rIdx]
 }
-function createDefaultHeaderCell() {
+function createDefaultHeaderCell(): HeaderCell {
   return {
     text: '', en: '', colspan: 1, rowspan: 1, width: '', align: 'left', color: '#000000', size: 16, indexed: false, collapsed: false
   }
 }
-function createDefaultCell() {
+function createDefaultCell(): DataCell {
   return {
     text: '', colspan: 1, rowspan: 1, align: 'left', color: '#000000', size: 16, collapsed: false
   }
 }
-function createDefaultConfig() {
+function createDefaultConfig(): TableConfig {
   return {
     headerRowsLen: 1,
-    headerRows: [[]], // 修正：一開始不產生預設儲存格
+    headerRows: [[]],
     dataRowsLen: 1,
     dataRowsCfg: [{ color: '#ffffff', cells: [] }],
     headerBg: '#e0eaff',
@@ -258,6 +266,20 @@ function getLeaf(cfg: any) {
     })
   }
   return R ? g[R - 1] : []
+}
+
+// 取得索引欄排序數字（僅遇到索引欄且 colspan/rowspan=1 時才遞增）
+function getIndexNumber(cfg: any, ri: number, ci: number) {
+  const leaf = getLeaf(cfg)
+  let count = 1
+  for (let r = 0; r <= ri; r++) {
+    const cell = cfg.dataRowsCfg[r].cells[ci]
+    if (leaf[ci]?.indexed && (+cell.colspan === 1) && (+cell.rowspan === 1)) {
+      if (r === ri) return count
+      count++
+    }
+  }
+  return ''
 }
 
 // 拖曳排序
@@ -343,6 +365,20 @@ function getContrastColor(hex: string) {
   return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff'
 }
 function saveToLocal() {
+  // 儲存前先將索引欄排序數字寫入 cell.text
+  tableConfigs.value.forEach(cfg => {
+    const leaf = getLeaf(cfg)
+    const cols = leaf.length
+    let indexCounters = Array(cols).fill(1)
+    cfg.dataRowsCfg.forEach((row: any, ri: number) => {
+      row.cells.forEach((cell: any, ci: number) => {
+        if (leaf[ci]?.indexed && (+cell.colspan === 1) && (+cell.rowspan === 1)) {
+          cell.text = String(indexCounters[ci])
+          indexCounters[ci]++
+        }
+      })
+    })
+  })
   const name = saveName.value.trim()
   if (!name) { alert('請輸入檔名！'); return }
   const key = 'dynamicTableMulti__' + name

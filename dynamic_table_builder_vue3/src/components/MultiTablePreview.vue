@@ -19,7 +19,56 @@
       <div v-else>
         <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
           <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
-          <div v-html="buildPreviewTable(cfg, idx)" @dragover.prevent @drop="e => onTableDrop(e, idx)"></div>
+          <table :class="'tbl-' + idx" class="preview">
+            <thead>
+              <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
+                <th v-for="(cell, cIdx) in row" :key="cIdx"
+                  :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+                  :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+                  :style="`text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;`"
+                >
+                  {{ cell.text || '\u00A0' }}<template v-if="cell.en"><br><small>{{ cell.en }}</small></template>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(row, rIdx) in cfg.dataRowsCfg"
+                :key="rIdx"
+                :style="{
+                  background: row.color || cfg.dataBg || '#fff',
+                  color: getContrastColor(row.color || cfg.dataBg || '#fff')
+                }"
+              >
+                <template v-for="(cell, cIdx) in row.cells">
+                  <td
+                    v-if="!isCellCovered(rIdx, cIdx, cfg)"
+                    :key="cIdx"
+                    :data-row="rIdx"
+                    :data-col="cIdx"
+                    v-bind="(cell.colspan === 1 && cell.rowspan === 1 && getLeaf(cfg)[cIdx]?.en) ? { 'data-column': getLeaf(cfg)[cIdx].en } : {}"
+                    :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+                    :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+                    :style="`text-align:${cell.align};${cell.color ? `color:${cell.color};` : ''}${cell.size ? `font-size:${cell.size}px;` : ''}min-width:120px;min-height:44px;`"
+                    @dragenter="cellDragEnter"
+                    @dragleave="cellDragLeave"
+                    @dragover.prevent="cellDragOver"
+                    @drop="cellDrop"
+                  >
+                    <div v-if="cell.value && cell.value.type === 'signature'" class="draggable-item reusable">
+                      <PaletteSignature
+                        v-bind="{ ...cell.value.props, imageData: cell.value.props?.imageData }"
+                        :modalOnClick="true"
+                        @update:imageData="img => updateSignature(cfg, rIdx, cIdx, img)"
+                      />
+                      <div class="del-btn" @click="() => { cell.value = undefined; cell.text = '' }">✖</div>
+                    </div>
+                    <span v-else-if="cell.text && cell.text.trim() !== ''" v-html="cell.text"></span>
+                  </td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -27,24 +76,23 @@
     <div id="outputArea" style="pointer-events: none; user-select: text;">
       <div v-if="previewHtml" v-html="previewHtml"></div>
     </div>
+    <div>
+      <input v-model="savePreviewName" placeholder="輸入檔名以儲存預覽表格" />
+      <button @click="savePreviewTable">儲存預覽表格</button>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import LegacyItemBuilder from './LegacyItemBuilder.vue'
-
-declare global {
-  interface Window {
-    __cellDragEnter?: (e: DragEvent) => void
-    __cellDragLeave?: (e: DragEvent) => void
-    __cellDragOver?: (e: DragEvent) => void
-  }
-}
+import PaletteSignature from './PaletteSignature.vue'
+import type { TableConfig } from '../types/table'
 
 const nameList = ref<string[]>([])
 const selectedName = ref('')
-const tableConfigs = ref<any[]>([])
+const tableConfigs = ref<TableConfig[]>([])
 const previewHtml = ref('')
+const savePreviewName = ref('')
 
 // ====== Palette 狀態 ======
 const paletteCollapsed = ref(false)
@@ -110,13 +158,13 @@ function onTableDrop(e: DragEvent, tableIdx: number) {
   } else if (item.component === 'PaletteTextarea') {
     html = `<div class='draggable-item reusable'><textarea placeholder='${item.props.placeholder}'></textarea><div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
   } else if (item.component === 'PaletteSignature') {
-    html = `<div class='draggable-item reusable'><div class='signature-box'>簽名區</div><div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
+    cell.value = { type: 'signature', props: {} }
+    cell.text = ''
   } else if (item.html) {
     html = `<div class='draggable-item reusable'>${item.html}<div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
   }
   cell.text = html || '&nbsp;'
 }
-
 
 function loadCustomPalette() {
   const raw = localStorage.getItem('paletteCustom')
@@ -129,7 +177,9 @@ function loadCustomPalette() {
 onMounted(() => {
   refreshNameOptions()
   loadCustomPalette()
-})
+});
+onBeforeUnmount(() => {
+});
 
 function getNameList() {
   try {
@@ -149,7 +199,7 @@ function loadFromLocal() {
   if (!raw) { tableConfigs.value = []; return }
   try {
     const obj = JSON.parse(raw)
-    tableConfigs.value = obj.configs || []
+    tableConfigs.value = obj.configs as TableConfig[] || []
   } catch {
     tableConfigs.value = []
   }
@@ -193,17 +243,17 @@ function preview() {
   })
   previewHtml.value = temp.innerHTML
 }
-function buildPreviewTable(cfg: any, idx: number) {
+function buildPreviewTable(cfg: TableConfig, idx: number) {
   const hBg = cfg.headerBg || '#e0eaff'
   const dBg = cfg.dataBg || '#fff'
   const hColor = getContrastColor(hBg)
   const leaf = getLeaf(cfg)
   const colgroup = `<colgroup>${leaf.map((l: any) => `<col style="${l.width ? `width:${l.width}%;` : ''}"></col>`).join('')}</colgroup>`
-  const thead = cfg.headerRows.map((r: any[]) => `<tr>${r.map((cell: { colspan: number; rowspan: number; en: any; align: any; color: any; size: any; text: any }) => `<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''} style=\"text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;\">${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('')
+  const thead = cfg.headerRows.map((r: any[]) => `<tr>${r.map((cell: { colspan: number; rowspan: number; en: any; align: any; color: any; size: number; text: any }) => `<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''} style=\"text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;\">${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('')
   const tbody = buildTbody(cfg, dBg)
   return `<style>.tbl-${idx} th{background:${hBg};color:${hColor};}</style><table class="preview tbl-${idx}">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table>`
 }
-function buildTbody(cfg: any, defaultBg: string) {
+function buildTbody(cfg: TableConfig, defaultBg: string) {
   const leaf = getLeaf(cfg)
   const indexColumns = leaf.map((l: any, i: number) => l.indexed ? i : null).filter((i: any) => i !== null)
   let indexCounter = 1
@@ -226,7 +276,7 @@ function buildTbody(cfg: any, defaultBg: string) {
           occ[r + rr][c + cc] = true
         }
       }
-      const data = cs === 1 && rs === 1 && leaf[c].en ? ` data-column=\"${leaf[c].en}\"` : ''
+      const data = cs === 1 && rs === 1 && leaf[c].en ? ` data-column="${leaf[c].en}"` : ''
       let raw = cell.text ?? ''
       let html = raw.replace(/\n/g, '<br>')
       if (!html) html = '&nbsp;'
@@ -238,28 +288,31 @@ function buildTbody(cfg: any, defaultBg: string) {
       const color = cell.color || ''
       const size = cell.size || 16
       // 新增 data-row, data-col 屬性
-      out += `<td data-row=\"${r}\" data-col=\"${c}\"${data}${cs > 1 ? ` colspan=\"${cs}\"` : ''}${rs > 1 ? ` rowspan=\"${rs}\"` : ''} style=\"text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}\"\n        ondragenter=\"window.__cellDragEnter && window.__cellDragEnter(event)\"\n        ondragleave=\"window.__cellDragLeave && window.__cellDragLeave(event)\"\n        ondragover=\"window.__cellDragOver && window.__cellDragOver(event)\"\n      >${html}</td>`
+      out += `<td data-row="${r}" data-col="${c}"${data}${cs > 1 ? ` colspan=\"${cs}\"` : ''}${rs > 1 ? ` rowspan=\"${rs}\"` : ''} style=\"text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}\"\n        ondragenter=\"cellDragEnter(event)\"\n        ondragleave=\"cellDragLeave(event)\"\n        ondragover=\"cellDragOver(event)\"\n      >${html}</td>`
     }
     if (rowIndexed) indexCounter++
     out += `</tr>`
   }
   return out
 }
-function getLeaf(cfg: any) {
+function getLeaf(cfg: TableConfig) {
   const g: any[] = []
   const R = cfg.headerRows.length
   for (let r = 0; r < R; r++) {
     g[r] ??= []
     let c = 0
     cfg.headerRows[r].forEach((cell: any) => {
-      while (g[r][c]) c++
-      const cs = +cell.colspan || 1, rs = +cell.rowspan || 1
-      for (let rr = 0; rr < rs; rr++) {
-        g[r + rr] ??= []
-        for (let cc = 0; cc < cs; cc++) {
-          g[r + rr][c + cc] = cell
+      if (cell.colspan > 1 || cell.rowspan > 1) {
+        for (let i = 0; i < (cell.colspan || 1); i++) {
+          for (let j = 0; j < (cell.rowspan || 1); j++) {
+            g[r + j] ??= []
+            g[r + j][c + i] = g[r + j][c + i] || { en: '', indexed: false }
+          }
         }
+      } else {
+        g[r][c] = g[r][c] || { en: '', indexed: false }
       }
+      if (cell.en) g[r][c].en = cell.en
       c++
     })
   }
@@ -273,21 +326,103 @@ function getContrastColor(hex: string) {
   return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff'
 }
 // ===== cell 拖曳亮光提示全域事件 =====
-if (typeof window !== 'undefined') {
-  window.__cellDragEnter = (e: DragEvent) => {
-    const td = (e.target as HTMLElement)?.closest('td')
-    if (td) td.classList.add('drop-hover')
-  }
-  window.__cellDragLeave = (e: DragEvent) => {
-    const td = (e.target as HTMLElement)?.closest('td')
-    if (td) td.classList.remove('drop-hover')
-  }
-  window.__cellDragOver = (e: DragEvent) => {
-    const td = (e.target as HTMLElement)?.closest('td')
-    if (td) td.classList.add('drop-hover')
-  }
+// 直接在 <td> 綁定元件內部函式，避免 window 污染
+function cellDragEnter(e: DragEvent) {
+  const td = e.currentTarget instanceof HTMLElement
+    ? e.currentTarget
+    : (e.target instanceof HTMLElement ? e.target.closest('td') : null);
+  if (td) td.classList.add('drop-hover');
+}
+function cellDragLeave(e: DragEvent) {
+  const td = e.currentTarget instanceof HTMLElement
+    ? e.currentTarget
+    : (e.target instanceof HTMLElement ? e.target.closest('td') : null);
+  if (td) setTimeout(() => td.classList.remove('drop-hover'), 50);
+}
+function cellDragOver(e: DragEvent) {
+  const td = e.currentTarget instanceof HTMLElement
+    ? e.currentTarget
+    : (e.target instanceof HTMLElement ? e.target.closest('td') : null);
+  if (td) td.classList.add('drop-hover');
+  e.preventDefault();
+}
+function cellDrop(e: DragEvent) {
+  const td = e.currentTarget instanceof HTMLElement
+    ? e.currentTarget
+    : (e.target instanceof HTMLElement ? e.target.closest('td') : null);
+  if (td) td.classList.remove('drop-hover');
+  onTableDrop(e, Number(td?.closest('.table-block')?.querySelector('table')?.className.match(/tbl-(\d+)/)?.[1]));
 }
 
+function savePreviewTable() {
+  const name = savePreviewName.value.trim()
+  if (!name) { alert('請輸入檔名！'); return }
+  const key = 'previewTableMulti__' + name
+  if (localStorage.getItem(key) && !confirm('已存在同名預覽檔案，是否覆蓋？')) return
+  // 深拷貝 tableConfigs，並移除 cell.text 內的 draggable-item reusable/del-btn HTML
+  const cleanConfigs = JSON.parse(JSON.stringify(tableConfigs.value))
+  for (const cfg of cleanConfigs) {
+    for (const row of cfg.dataRowsCfg) {
+      for (const cell of row.cells) {
+        if (typeof cell.text === 'string') {
+          // 移除 draggable-item reusable 區塊與 del-btn
+          cell.text = cell.text
+            .replace(/<div class='draggable-item reusable'[^>]*>/g, '')
+            .replace(/<div class="draggable-item reusable"[^>]*>/g, '')
+            .replace(/<div class=\'draggable-item reusable\'[^>]*>/g, '')
+            .replace(/<div class=\"draggable-item reusable\"[^>]*>/g, '')
+            .replace(/<div class='del-btn'[^>]*>.*?<\/div>/g, '')
+            .replace(/<div class=\'del-btn\'[^>]*>.*?<\/div>/g, '')
+            .replace(/<div class="del-btn"[^>]*>.*?<\/div>/g, '')
+            .replace(/<div class=\"del-btn\"[^>]*>.*?<\/div>/g, '')
+        }
+      }
+    }
+  }
+  const payload = {
+    configs: cleanConfigs
+  }
+  localStorage.setItem(key, JSON.stringify(payload))
+  // 更新名稱清單
+  const listRaw = localStorage.getItem('previewTableMulti__names')
+  let list = []
+  try { list = listRaw ? JSON.parse(listRaw) : [] } catch { list = [] }
+  if (!list.includes(name)) { list.push(name); localStorage.setItem('previewTableMulti__names', JSON.stringify(list)) }
+  alert('已儲存預覽表格為「' + name + '」')
+}
+
+function isCellCovered(r: number, c: number, cfg: TableConfig) {
+  // 動態計算 occ 陣列，僅用於渲染該 row 的判斷
+  const rows = cfg.dataRowsCfg.length
+  const cols = cfg.dataRowsCfg[0].cells.length
+  let occ = Array.from({ length: rows }, () => Array(cols).fill(false))
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      if (occ[i][j]) continue
+      const cell = cfg.dataRowsCfg[i].cells[j]
+      let cs = +cell.colspan || 1, rs = +cell.rowspan || 1
+      for (let rr = 0; rr < rs; rr++) {
+        for (let cc = 0; cc < cs; cc++) {
+          if (rr !== 0 || cc !== 0) occ[i + rr][j + cc] = true
+        }
+      }
+    }
+  }
+  return occ[r][c]
+}
+
+// updateSignature 方法補強 imageData 雙向綁定
+function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: string) {
+  console.log('updateSignature', rIdx, cIdx, img)
+  if (cfg && cfg.dataRowsCfg && cfg.dataRowsCfg[rIdx] && cfg.dataRowsCfg[rIdx].cells[cIdx]) {
+    const cell = cfg.dataRowsCfg[rIdx].cells[cIdx]
+    cell.value = {
+      ...(cell.value || {}),
+      props: { ...(cell.value?.props || {}), imageData: img },
+      imageData: img
+    }
+  }
+}
 </script>
 <style >
 body {
@@ -320,7 +455,7 @@ th {
   background: #f5f5f5;
 }
 td.drop-hover {
-  background: #c8e6c9;
+  background: #f32400;
 }
 #tableWrap,
 #outputArea {
@@ -446,7 +581,8 @@ h4.collapsible .caret {
   border: 1px solid #bbb;
   padding: 0.4rem;
   cursor: grab;
-  width: 280px;
+  /* width: 280px; */
+  width: 100%;
   box-sizing: border-box;
 }
 .reusable {
@@ -466,6 +602,14 @@ h4.collapsible .caret {
   margin-bottom: 1.5rem;
   background: #fff;
   transition: box-shadow 0.2s;
+  max-width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+table.preview {
+  width: 100%;
+  table-layout: fixed;
+  word-break: break-all;
 }
 .table-block.dragover {
   box-shadow: 0 0 0 2px #4caf50;
