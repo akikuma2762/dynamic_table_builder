@@ -350,7 +350,7 @@ function buildTbody(cfg: any, defaultBg: string) {
       const color = cell.color || ''
       const size = cell.size || 16
       // 修正: 產生 <td> 屬性時，所有屬性皆用單層雙引號，避免 escape 問題
-      out += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''} style="text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}">${html}</td>`
+      out += `<td${data}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''} style="align-content: center;text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}">${html}</td>`
     }
     if (rowIndexed) indexCounter++
     out += `</tr>`

@@ -214,8 +214,36 @@ function toggleAllPalette() {
   customCollapsed.value = allCollapsed.value
 }
 function onPaletteDragStart(item: any, e?: DragEvent) {
+  let dragItem = item
+  // 若為自訂 palette，解析 html 產生 fields，並補上 component: 'custom'
+  if (!item.component && item.html) {
+    const temp = document.createElement('div')
+    temp.innerHTML = item.html
+    const fields: import('../types/table').PaletteField[] = []
+    let keyIdx = 1
+    temp.querySelectorAll('input').forEach((el: HTMLInputElement) => {
+      if (el.type === 'checkbox') {
+        fields.push({
+          type: 'checkbox',
+          key: 'chk' + keyIdx++,
+          props: { checked: false, label: el.value || '勾選' }
+        })
+      } else if (el.type === 'text') {
+        fields.push({
+          type: 'inputText',
+          key: 'txt' + keyIdx++,
+          props: { value: '', placeholder: el.placeholder || '' }
+        })
+      }
+    })
+    dragItem = { ...item, component: 'custom', fields }
+  }
   if (e) {
-    e.dataTransfer?.setData('text/plain', item.id)
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', dragItem.id)
+      // 新增：完整 palette 資料序列化
+      e.dataTransfer.setData('application/json', JSON.stringify(dragItem))
+    }
     e.dataTransfer!.effectAllowed = 'copy'
   }
 }

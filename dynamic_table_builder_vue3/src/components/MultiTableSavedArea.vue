@@ -13,6 +13,9 @@
         <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
           <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
           <table :class="'tbl-' + idx" class="preview">
+            <colgroup>
+              <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + 'px' : ''" />
+            </colgroup>
             <thead>
               <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
                 <th v-for="(cell, cIdx) in row" :key="cIdx"
@@ -62,6 +65,11 @@
                         style="width:100%;min-height:32px;"
                       ></textarea>
                     </template>
+                    <template v-else-if="isCustomValue(cell.value)">
+                      <template v-for="field in cell.value.fields" :key="field.key">
+                        <component :is="resolveFieldComponent(field)" :field="field" />
+                      </template>
+                    </template>
                     <template v-else-if="cell.text && cell.text.trim() !== ''">
                       <span v-html="stripPaletteHtml(cell.text)"></span>
                     </template>
@@ -81,7 +89,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import PaletteSignature from './PaletteSignature.vue'
-import type { TableConfig } from '../types/table'
+import type { TableConfig, PaletteField } from '../types/table'
+
+function isCustomValue(val: any): val is { type: 'custom'; fields: PaletteField[] } {
+  return val && val.type === 'custom' && Array.isArray(val.fields)
+}
 
 const nameList = ref<string[]>([])
 const selectedName = ref('')
@@ -106,6 +118,7 @@ function loadSavedTable() {
   try {
     const obj = JSON.parse(raw)
     tableConfigs.value = obj.configs || []
+    // 不再重建 cell.text，直接還原原始 HTML
   } catch {
     tableConfigs.value = []
   }
@@ -161,13 +174,15 @@ function isCellCovered(r: number, c: number, cfg: TableConfig) {
 function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: string) {
   if (cfg && cfg.dataRowsCfg && cfg.dataRowsCfg[rIdx] && cfg.dataRowsCfg[rIdx].cells[cIdx]) {
     const cell = cfg.dataRowsCfg[rIdx].cells[cIdx]
-    cell.value = {
-      ...(cell.value || {}),
-      props: { ...(cell.value?.props || {}), imageData: img },
-      imageData: img
+    if (cell.value && cell.value.type === 'signature') {
+      cell.value = {
+        ...cell.value,
+        props: { ...(cell.value.props || {}), imageData: img }
+      }
     }
   }
 }
+
 function stripPaletteHtml(html: string): string {
   if (!html) return ''
   return html
@@ -194,6 +209,56 @@ function saveAllChanges() {
 onMounted(() => {
   reload()
 })
+</script>
+<script lang="ts">
+import { defineComponent, h } from 'vue'
+
+const FieldRenderer = defineComponent({
+  name: 'FieldRenderer',
+  props: { field: { type: Object, required: true } },
+  setup(props) {
+    function renderField(field: any) {
+      if (field.type === 'p') {
+        return h('p', {}, (field.children || []).map(renderField))
+      } else if (field.type === 'br') {
+        return h('br')
+      } else if (field.type === 'text') {
+        return h('span', {}, field.props.text)
+      } else if (field.type === 'checkbox') {
+        return h('label', { style: 'margin-right:8px;' }, [
+          h('input', {
+            type: 'checkbox',
+            checked: field.props.checked,
+            onInput: (e: any) => { field.props.checked = e.target.checked }
+          }),
+          field.props.label
+        ])
+      } else if (field.type === 'inputText') {
+        return h('input', {
+          type: 'text',
+          value: field.props.value,
+          placeholder: field.props.placeholder,
+          style: 'width:150px;margin:0 4px 0 0;',
+          onInput: (e: any) => { field.props.value = e.target.value }
+        })
+      } else if (field.type === 'textarea') {
+        return h('textarea', {
+          value: field.props.text,
+          placeholder: field.props.placeholder || '',
+          style: 'width:100%;min-height:32px;',
+          onInput: (e: any) => { field.props.text = e.target.value }
+        })
+      } else if (field.type === 'fragment') {
+        return (field.children || []).map(renderField)
+      }
+      return null
+    }
+    return () => renderField(props.field)
+  }
+})
+function resolveFieldComponent(field: any) {
+  return FieldRenderer
+}
 </script>
 <style scoped>
 .table-block {

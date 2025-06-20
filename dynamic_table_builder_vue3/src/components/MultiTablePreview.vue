@@ -20,6 +20,9 @@
         <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
           <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
           <table :class="'tbl-' + idx" class="preview">
+            <colgroup>
+              <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + 'px' : ''" />
+            </colgroup>
             <thead>
               <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
                 <th v-for="(cell, cIdx) in row" :key="cIdx"
@@ -77,6 +80,9 @@
       <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
         <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
         <table :class="'tbl-' + idx" class="preview">
+          <colgroup>
+            <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + 'px' : ''" />
+          </colgroup>
           <thead>
             <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
               <th v-for="(cell, cIdx) in row" :key="cIdx"
@@ -182,6 +188,12 @@ function onTableDrop(e: DragEvent, tableIdx: number) {
   const paletteId = e.dataTransfer?.getData('text/plain')
   if (!paletteId) return
   let item = nativeItems.value.find(i => i.id === paletteId) || customItems.value.find(i => i.id === paletteId)
+  // 新增：若找不到，從 dataTransfer 取完整 palette 資料
+  if (!item) {
+    const json = e.dataTransfer?.getData('application/json')
+    if (json) item = JSON.parse(json)
+  }
+  if (!item) return
   if (!item) return
   const target = e.target as HTMLElement
   const td = target.closest('td')
@@ -216,7 +228,76 @@ function onTableDrop(e: DragEvent, tableIdx: number) {
     cell.value = { type: 'signature', props: {} }
     cell.text = ''
   } else if (item.html) {
-    html = `<div class='draggable-item reusable'>${item.html}<div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
+    // 複合 palette：遞迴解析 HTML 產生片段 fields（純文字、checkbox、inputText）
+    const temp = document.createElement('div')
+    temp.innerHTML = item.html
+    let keyIdx = 1
+    const fields: import('../types/table').PaletteField[] = []
+    function parseNode(node: ChildNode, skipTextSet = new Set<ChildNode>()): any {
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (skipTextSet.has(node)) return null;
+        const text = node.textContent ?? ''
+        if (text.trim() !== '') {
+          return { type: 'text', key: 'txt' + keyIdx++, props: { text } }
+        }
+        return null
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement
+        if (el.tagName === 'P') {
+          // 處理 <p> 內所有子節點
+          const children = Array.from(el.childNodes).map(child => parseNode(child, skipTextSet)).filter(Boolean)
+          return { type: 'p', key: 'p' + keyIdx++, children }
+        } else if (el.tagName === 'BR') {
+          return { type: 'br', key: 'br' + keyIdx++, props: {} }
+        } else if (el.tagName === 'INPUT') {
+          const inputType = (el as HTMLInputElement).type
+          if (inputType === 'checkbox') {
+            let labelText = el.getAttribute('value') || ''
+            if (el.nextSibling && el.nextSibling.nodeType === Node.TEXT_NODE) {
+              const nextText = el.nextSibling.textContent?.trim() || ''
+              if (nextText) labelText = nextText
+              skipTextSet.add(el.nextSibling)
+            }
+            return {
+              type: 'checkbox',
+              key: 'chk' + keyIdx++,
+              props: {
+                checked: false,
+                label: labelText || '勾選'
+              }
+            }
+          } else if (inputType === 'text') {
+            return {
+              type: 'inputText',
+              key: 'txt' + keyIdx++,
+              props: {
+                value: '',
+                placeholder: (el as HTMLInputElement).placeholder || ''
+              }
+            }
+          }
+        } else if (el.tagName === 'TEXTAREA') {
+          return {
+            type: 'textarea',
+            key: 'ta' + keyIdx++,
+            props: {
+              text: '',
+              placeholder: el.getAttribute('placeholder') || ''
+            }
+          }
+        } else {
+          // 其他標籤，遞迴處理所有子節點
+          const children = Array.from(el.childNodes).map(child => parseNode(child, skipTextSet)).filter(Boolean)
+          if (children.length === 1) return children[0]
+          if (children.length > 1) return { type: 'fragment', key: 'frag' + keyIdx++, children }
+          return null
+        }
+      }
+      return null
+    }
+    const parsedFields = Array.from(temp.childNodes).map(node => parseNode(node)).filter(Boolean)
+    cell.value = { type: 'custom', fields: parsedFields }
+    html = item.html // 保留 palette 原始 HTML
   }
   cell.text = html || '&nbsp;'
 }
@@ -441,6 +522,7 @@ function savePreviewTable() {
   const key = 'previewTableMulti__' + name
   if (localStorage.getItem(key) && !confirm('已存在同名預覽檔案，是否覆蓋？')) return
   // 深拷貝 tableConfigs，並移除 cell.text 內的 draggable-item reusable/del-btn HTML
+  console.log("表格配置：", tableConfigs.value);
   const cleanConfigs = JSON.parse(JSON.stringify(tableConfigs.value))
   for (const cfg of cleanConfigs) {
     for (const row of cfg.dataRowsCfg) {
@@ -486,13 +568,13 @@ function isCellCovered(r: number, c: number, cfg: TableConfig) {
 
 // updateSignature 方法補強 imageData 雙向綁定
 function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: string) {
-  console.log('updateSignature', rIdx, cIdx, img)
   if (cfg && cfg.dataRowsCfg && cfg.dataRowsCfg[rIdx] && cfg.dataRowsCfg[rIdx].cells[cIdx]) {
     const cell = cfg.dataRowsCfg[rIdx].cells[cIdx]
-    cell.value = {
-      ...(cell.value || {}),
-      props: { ...(cell.value?.props || {}), imageData: img },
-      imageData: img
+    if (cell.value && cell.value.type === 'signature') {
+      cell.value = {
+        ...cell.value,
+        props: { ...(cell.value.props || {}), imageData: img }
+      }
     }
   }
 }

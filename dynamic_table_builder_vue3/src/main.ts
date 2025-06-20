@@ -10,8 +10,6 @@ const Inline = Quill.import('blots/inline')
 class CheckboxBlot extends Inline {
   static create(value = { label: 'OK' }) {
     const node = super.create();
-          node.setAttribute('contenteditable', 'true');
-
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.value = value.label || 'OK';

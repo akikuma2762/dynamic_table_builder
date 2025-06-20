@@ -11,6 +11,12 @@ export interface HeaderCell {
   collapsed?: boolean // UI用，可選
 }
 
+export interface PaletteField {
+  type: string; // 'checkbox' | 'inputText' | 'textarea' | ...
+  key: string; // 唯一識別
+  props: any;
+}
+
 export interface DataCell {
   text: string
   colspan: number
@@ -19,7 +25,9 @@ export interface DataCell {
   color: string
   size: number
   collapsed?: boolean // UI用，可選
-  value?: any // palette 互動元件用
+  value?:
+    | { type: string; props: any } // 單一 palette
+    | { type: 'custom'; fields: PaletteField[] } // 複合 palette
   type?: string // palette 型別判斷用，如 'signature'、'text' 等
 }
 
