@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div :class="['multi-table-preview-root', { 'palette-collapsed': paletteCollapsed }]">
     <h3>拖放檢查表（v7 LocalStorage 整合）</h3>
     <div id="controls">
       <button @click="preview">匯出 / 預覽</button>
@@ -12,129 +12,76 @@
       <button @click="loadFromLocal">📂 讀取</button>
     </div>
     <!-- -------- 自訂 Item 產生器 -------- -->
-    <LegacyItemBuilder />
-    <h4>編輯區：</h4>
-    <div id="tableWrap">
-      <div v-if="tableConfigs.length === 0">（請先選擇檔案）</div>
-      <div v-else>
-        <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
-          <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
-          <table :class="'tbl-' + idx" class="preview">
-            <colgroup>
-              <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + 'px' : ''" />
-            </colgroup>
-            <thead>
-              <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
-                <th v-for="(cell, cIdx) in row" :key="cIdx"
-                  :colspan="cell.colspan > 1 ? cell.colspan : undefined"
-                  :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
-                  :style="`text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;`"
-                >
-                  {{ cell.text || '\u00A0' }}<template v-if="cell.en"><br><small>{{ cell.en }}</small></template>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(row, rIdx) in cfg.dataRowsCfg"
-                :key="rIdx"
-                :style="{
-                  background: row.color || cfg.dataBg || '#fff',
-                  color: getContrastColor(row.color || cfg.dataBg || '#fff')
-                }"
-              >
-                <template v-for="(cell, cIdx) in row.cells">
-                  <td
-                    v-if="!isCellCovered(rIdx, cIdx, cfg)"
-                    :key="cIdx"
-                    :data-row="rIdx"
-                    :data-col="cIdx"
-                    v-bind="(cell.colspan === 1 && cell.rowspan === 1 && getLeaf(cfg)[cIdx]?.en) ? { 'data-column': getLeaf(cfg)[cIdx].en } : {}"
+    <LegacyItemBuilder :collapsed="paletteCollapsed" @update:collapsed="paletteCollapsed = $event" />
+    <div class="main-content">
+      <h4>編輯區：</h4>
+      <div id="tableWrap">
+        <div v-if="tableConfigs.length === 0">（請先選擇檔案）</div>
+        <div v-else>
+          <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
+            <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
+            <table :class="'tbl-' + idx" class="preview">
+              <colgroup>
+                <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + '%' : ''" />
+              </colgroup>
+              <thead>
+                <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
+                  <th v-for="(cell, cIdx) in row" :key="cIdx"
                     :colspan="cell.colspan > 1 ? cell.colspan : undefined"
                     :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
-                    :style="`text-align:${cell.align};${cell.color ? `color:${cell.color};` : ''}${cell.size ? `font-size:${cell.size}px;` : ''}min-width:120px;min-height:44px;`"
-                    @dragenter="cellDragEnter"
-                    @dragleave="cellDragLeave"
-                    @dragover.prevent="cellDragOver"
-                    @drop="cellDrop"
+                    :style="`background:${cell.bg||'#e0eaff'};text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;`"
                   >
-                    <div v-if="cell.value && cell.value.type === 'signature'" class="draggable-item reusable">
-                      <PaletteSignature
-                        v-bind="{ ...cell.value.props, imageData: cell.value.props?.imageData }"
-                        :modalOnClick="true"
-                        @update:imageData="img => updateSignature(cfg, rIdx, cIdx, img)"
-                      />
-                      <div class="del-btn" @click="() => { cell.value = undefined; cell.text = '' }">✖</div>
-                    </div>
-                    <span v-else-if="cell.text && cell.text.trim() !== ''" v-html="cell.text"></span>
-                  </td>
-                </template>
-              </tr>
-            </tbody>
-          </table>
+                    {{ cell.text || '\u00A0' }}<template v-if="cell.en"><br><small>{{ cell.en }}</small></template>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(row, rIdx) in cfg.dataRowsCfg"
+                  :key="rIdx"
+                  :style="{
+                    background: row.color || cfg.dataBg || '#fff',
+                    color: getContrastColor(row.color || cfg.dataBg || '#fff')
+                  }"
+                >
+                  <template v-for="(cell, cIdx) in row.cells">
+                    <td
+                      v-if="!isCellCovered(rIdx, cIdx, cfg)"
+                      :key="cIdx"
+                      :data-row="rIdx"
+                      :data-col="cIdx"
+                      v-bind="(cell.colspan === 1 && cell.rowspan === 1 && getLeaf(cfg)[cIdx]?.en) ? { 'data-column': getLeaf(cfg)[cIdx].en } : {}"
+                      :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+                      :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+                      :style="`text-align:${cell.align};${cell.color ? `color:${cell.color};` : ''}${cell.size ? `font-size:${cell.size}px;` : ''}min-width:120px;min-height:44px;`"
+                      @dragenter="cellDragEnter"
+                      @dragleave="cellDragLeave"
+                      @dragover.prevent="cellDragOver"
+                      @drop="cellDrop"
+                    >
+                      <div v-if="cell.value && cell.value.type === 'signature'" class="draggable-item reusable">
+                        <PaletteSignature
+                          v-bind="{ ...cell.value.props, imageData: cell.value.props?.imageData }"
+                          :modalOnClick="true"
+                          @update:imageData="img => updateSignature(cfg, rIdx, cIdx, img)"
+                        />
+                        <div class="del-btn" @click="() => { cell.value = undefined; cell.text = '' }">✖</div>
+                      </div>
+                      <span v-else-if="cell.text && cell.text.trim() !== ''" v-html="cell.text"></span>
+                    </td>
+                  </template>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-    <h4>預覽區：</h4>
-    <div id="outputArea">
-      <div v-for="(cfg, idx) in tableConfigs" :key="idx" class="table-block">
-        <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
-        <table :class="'tbl-' + idx" class="preview">
-          <colgroup>
-            <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + 'px' : ''" />
-          </colgroup>
-          <thead>
-            <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
-              <th v-for="(cell, cIdx) in row" :key="cIdx"
-                :colspan="cell.colspan > 1 ? cell.colspan : undefined"
-                :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
-                :style="`text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;`"
-              >
-                {{ cell.text || '\u00A0' }}<template v-if="cell.en"><br><small>{{ cell.en }}</small></template>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, rIdx) in cfg.dataRowsCfg" :key="rIdx"
-              :style="{
-                background: row.color || cfg.dataBg || '#fff',
-                color: getContrastColor(row.color || cfg.dataBg || '#fff')
-              }"
-            >
-              <template v-for="(cell, cIdx) in row.cells">
-                <td
-                  v-if="!isCellCovered(rIdx, cIdx, cfg)"
-                  :key="cIdx"
-                  :data-row="rIdx"
-                  :data-col="cIdx"
-                  v-bind="(cell.colspan === 1 && cell.rowspan === 1 && getLeaf(cfg)[cIdx]?.en) ? { 'data-column': getLeaf(cfg)[cIdx].en } : {}"
-                  :colspan="cell.colspan > 1 ? cell.colspan : undefined"
-                  :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
-                  :style="`text-align:${cell.align};${cell.color ? `color:${cell.color};` : ''}${cell.size ? `font-size:${cell.size}px;` : ''}min-width:120px;min-height:44px;`"
-                >
-                  <template v-if="cell.value && cell.value.type === 'signature'">
-                    <PaletteSignature
-                      v-bind="{ ...cell.value.props, imageData: cell.value.props?.imageData }"
-                      :modalOnClick="true"
-                      @update:imageData="img => updateSignature(cfg, rIdx, cIdx, img)"
-                    />
-                  </template>
-                  <template v-else-if="cell.text && cell.text.trim() !== ''">
-                    <span v-html="stripPaletteHtml(cell.text)"></span>
-                  </template>
-                  <template v-else>
-                    &nbsp;
-                  </template>
-                </td>
-              </template>
-            </tr>
-          </tbody>
-        </table>
+      <h4>預覽區：</h4>
+      <div id="outputArea" v-html="previewHtml"></div>
+      <div>
+        <input v-model="savePreviewName" placeholder="輸入檔名以儲存預覽表格" />
+        <button @click="savePreviewTable">儲存預覽表格</button>
       </div>
-    </div>
-    <div>
-      <input v-model="savePreviewName" placeholder="輸入檔名以儲存預覽表格" />
-      <button @click="savePreviewTable">儲存預覽表格</button>
     </div>
   </div>
 </template>
@@ -143,6 +90,8 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import LegacyItemBuilder from './LegacyItemBuilder.vue'
 import PaletteSignature from './PaletteSignature.vue'
 import type { TableConfig } from '../types/table'
+// 新增 TableMultiFile 型別
+import type { TableMultiFile } from '../types/table'
 
 const nameList = ref<string[]>([])
 const selectedName = ref('')
@@ -152,21 +101,8 @@ const savePreviewName = ref('')
 
 // ====== Palette 狀態 ======
 const paletteCollapsed = ref(false)
-const nativeCollapsed = ref(false)
-const customCollapsed = ref(false)
-const allCollapsed = ref(false)
-function togglePalette() {
-  paletteCollapsed.value = !paletteCollapsed.value
-}
-function toggleBlock(type: 'native' | 'custom') {
-  if (type === 'native') nativeCollapsed.value = !nativeCollapsed.value
-  if (type === 'custom') customCollapsed.value = !customCollapsed.value
-}
-function toggleAllPalette() {
-  allCollapsed.value = !allCollapsed.value
-  nativeCollapsed.value = allCollapsed.value
-  customCollapsed.value = allCollapsed.value
-}
+
+
 
 // Palette 相關
 const nativeItems = ref([
@@ -176,14 +112,8 @@ const nativeItems = ref([
 ])
 const customItems = ref<any[]>([])
 
-// 拖曳
-function onPaletteDragStart(item: any, e?: DragEvent) {
-  if (e) {
-    e.dataTransfer?.setData('text/plain', item.id)
-    e.dataTransfer!.effectAllowed = 'copy'
-  }
-}
-function onTableDrop(e: DragEvent, tableIdx: number) {
+
+function onTableDrop(e: DragEvent) {
   e.preventDefault()
   const paletteId = e.dataTransfer?.getData('text/plain')
   if (!paletteId) return
@@ -232,7 +162,7 @@ function onTableDrop(e: DragEvent, tableIdx: number) {
     const temp = document.createElement('div')
     temp.innerHTML = item.html
     let keyIdx = 1
-    const fields: import('../types/table').PaletteField[] = []
+    
     function parseNode(node: ChildNode, skipTextSet = new Set<ChildNode>()): any {
       if (node.nodeType === Node.TEXT_NODE) {
         if (skipTextSet.has(node)) return null;
@@ -297,7 +227,8 @@ function onTableDrop(e: DragEvent, tableIdx: number) {
     }
     const parsedFields = Array.from(temp.childNodes).map(node => parseNode(node)).filter(Boolean)
     cell.value = { type: 'custom', fields: parsedFields }
-    html = item.html // 保留 palette 原始 HTML
+    // 方案一：自訂 palette 也包一層 draggable-item reusable 與 del-btn
+    html = `<div class='draggable-item reusable'>${item.html}<div class='del-btn' onclick='this.parentNode.parentNode.innerHTML="&nbsp;"'>✖</div></div>`
   }
   cell.text = html || '&nbsp;'
 }
@@ -334,8 +265,22 @@ function loadFromLocal() {
   const raw = localStorage.getItem('dynamicTableMulti__' + name)
   if (!raw) { tableConfigs.value = []; return }
   try {
-    const obj = JSON.parse(raw)
-    tableConfigs.value = obj.configs as TableConfig[] || []
+    const obj = JSON.parse(raw) as TableMultiFile
+    // 相容處理：若有 headerBg，補到 cell.bg
+    if (Array.isArray(obj.configs)) {
+      obj.configs.forEach(cfg => {
+        // 型別保守處理 headerBg
+        if ((cfg as any).headerBg) {
+          cfg.headerRows?.forEach(row => {
+            row.forEach(cell => {
+              if (!cell.bg) cell.bg = (cfg as any).headerBg
+            })
+          })
+          delete (cfg as any).headerBg
+        }
+      })
+    }
+    tableConfigs.value = obj.configs ?? []
   } catch {
     tableConfigs.value = []
   }
@@ -391,14 +336,12 @@ function preview() {
   previewHtml.value = temp.innerHTML
 }
 function buildPreviewTable(cfg: TableConfig, idx: number) {
-  const hBg = cfg.headerBg || '#e0eaff'
   const dBg = cfg.dataBg || '#fff'
-  const hColor = getContrastColor(hBg)
-  const leaf = getLeaf(cfg)
-  const colgroup = `<colgroup>${leaf.map((l: any) => `<col style="${l.width ? `width:${l.width}%;` : ''}"></col>`).join('')}</colgroup>`
-  const thead = cfg.headerRows.map((r: any[]) => `<tr>${r.map((cell: { colspan: number; rowspan: number; en: any; align: any; color: any; size: number; text: any }) => `<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''} style=\"text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;\">${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('')
+  // 修正：colgroup 直接用 headerRows[0]，與編輯區一致
+  const colgroup = `<colgroup>${(cfg.headerRows[0] || []).map((col: any) => `<col style="${col.width ? `width:${col.width}%` : ''}">`).join('')}</colgroup>`
+  const thead = cfg.headerRows.map((r: any[]) => `<tr>${r.map((cell: any) => `<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''} style=\"background:${cell.bg||'#e0eaff'};text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;\">${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('')
   const tbody = buildTbody(cfg, dBg)
-  return `<style>.tbl-${idx} th{background:${hBg};color:${hColor};}</style><table class="preview tbl-${idx}">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table>`
+  return `<table class=\"preview tbl-${idx}\">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table>`
 }
 function buildTbody(cfg: TableConfig, defaultBg: string) {
   const leaf = getLeaf(cfg)
@@ -501,7 +444,7 @@ function cellDrop(e: DragEvent) {
     ? e.currentTarget
     : (e.target instanceof HTMLElement ? e.target.closest('td') : null);
   if (td) td.classList.remove('drop-hover');
-  onTableDrop(e, Number(td?.closest('.table-block')?.querySelector('table')?.className.match(/tbl-(\d+)/)?.[1]));
+  onTableDrop(e);
 }
 
 // 新增：過濾 palette HTML 標籤
@@ -579,44 +522,29 @@ function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: stri
   }
 }
 </script>
-<style >
-body {
+<style scoped>
+.multi-table-preview-root {
   font-family: "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
   margin: 1.5rem;
+  transition: margin-right 0.3s, width 0.3s;
   margin-right: 340px;
 }
-body.palette-collapsed {
+.multi-table-preview-root.palette-collapsed {
   margin-right: 24px;
 }
+
 #controls button {
   margin-right: 0.5rem;
   padding: 4px 10px;
 }
-.draggable-item {
-  background: #fffbe6;
-  border-collapse: collapse;
-  width: 100%;
-  margin-top: 1rem;
-}
-th,
-td {
-  border: 1px solid #999;
-  padding: 0.6rem;
-  min-height: 44px;
-  text-align: left;
-  vertical-align: top;
-}
-th {
-  background: #f5f5f5;
-}
-td.drop-hover {
-  background: #f32400;
-}
+/* .draggable-item 及 .reusable 樣式已移至全域 CSS */
+
 #tableWrap,
 #outputArea {
   margin-top: 2rem;
   border: 2px dashed #aaa;
   padding: 1rem;
+  border-radius: 10px;
 }
 .saved-block {
   border: 1px solid #777;
@@ -630,11 +558,7 @@ td.drop-hover {
 .buttons-inline > button {
   margin-right: 0.5rem;
 }
-textarea {
-  width: 180px;
-  height: 60px;
-  font-family: inherit;
-}
+
 .draggable-item textarea {
   width: 100%;
   max-width: 100%;
@@ -642,6 +566,7 @@ textarea {
   resize: vertical;
   overflow-wrap: break-word;
 }
+
 .signature {
   display: flex;
   flex-direction: column;
@@ -658,99 +583,7 @@ textarea {
 .clearSig {
   font-size: 0.75rem;
 }
-#palette-wrapper {
-  position: fixed;
-  right: 0;
-  top: 0;
-  height: 100vh;
-  width: 320px;
-  background: #fafafa;
-  border-left: 1px solid #ccc;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  padding: 12px 8px 12px 12px;
-  z-index: 998;
-  transition: transform 0.25s ease;
-}
-#palette-wrapper.collapsed {
-  transform: translateX(100%);
-}
-#palette {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-#palette-toggle {
-  position: absolute;
-  left: -30px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 64px;
-  border: 1px solid #ccc;
-  border-radius: 6px 0 0 6px;
-  background: #fafafa;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
-  user-select: none;
-  font-size: 14px;
-}
-h4.collapsible {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  margin: 0 0 0.25rem;
-  font-weight: bold;
-  user-select: none;
-}
-h4.collapsible .caret {
-  margin-left: 6px;
-  font-size: 0.9rem;
-}
-.palette-block {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border: 1px dashed #999;
-  margin-bottom: 0.75rem;
-}
-.palette-block.collapsed {
-  display: none;
-}
-.palette-block.native {
-  background: #fffbe6;
-  border-color: #f0c36d;
-}
-.palette-block.custom {
-  background: #e8fbe9;
-  border-color: #4caf50;
-}
-.draggable-item {
-  background: #fff;
-  border: 1px solid #bbb;
-  padding: 0.4rem;
-  cursor: grab;
-  /* width: 280px; */
-  width: 100%;
-  box-sizing: border-box;
-}
-.reusable {
-  background: #e1f5fe;
-  border-color: #03a9f4;
-}
-.draggable-item .del-btn {
-  text-align: end;
-  font-size: 0.8rem;
-  color: #f44336;
-  cursor: pointer;
-  user-select: none;
-}
+
 .table-block {
   min-height: 60px;
   border: 1px dashed #bbb;
@@ -760,6 +593,8 @@ h4.collapsible .caret {
   max-width: 100%;
   overflow-x: auto;
   box-sizing: border-box;
+  border-radius: 10px;
+  padding: 0.5rem;
 }
 table.preview {
   width: 100%;
@@ -769,5 +604,8 @@ table.preview {
 .table-block.dragover {
   box-shadow: 0 0 0 2px #4caf50;
   border-color: #4caf50;
+}
+td.drop-hover {
+  background: #f32400;
 }
 </style>

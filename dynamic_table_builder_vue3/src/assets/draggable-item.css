@@ -1,0 +1,34 @@
+/* 拖曳 palette 物件專用全域樣式，請於 main.ts 匯入 */
+.draggable-item {
+  background: #fffbe6;
+  border: 1px solid #bbb;
+  padding: 0.4rem;
+  cursor: grab;
+  width: 100%;
+  box-sizing: border-box;
+}
+.reusable {
+  background: #e1f5fe;
+  border-color: #03a9f4;
+}
+.draggable-item .del-btn {
+  text-align: end;
+  font-size: 0.8rem;
+  color: #f44336;
+  cursor: pointer;
+  user-select: none;
+}
+textarea {
+  width: 150px;
+  max-width: 100%;
+  height: 60px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+input[type="text"] {
+  width: 150px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem;
+  font-family: inherit;
+}

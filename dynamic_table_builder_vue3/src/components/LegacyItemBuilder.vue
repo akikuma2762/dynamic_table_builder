@@ -73,12 +73,15 @@
   </fieldset>
 </template>
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, defineProps, defineEmits } from 'vue'
 import Quill from 'quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import PaletteCheckbox from './PaletteCheckbox.vue'
 import PaletteTextarea from './PaletteTextarea.vue'
 import PaletteSignature from './PaletteSignature.vue'
+
+const props = defineProps<{ collapsed: boolean }>();
+const emit = defineEmits(['update:collapsed'])
 
 const builderChkLabel = ref<HTMLInputElement | null>(null)
 const builderInputPH = ref<HTMLInputElement | null>(null)
@@ -86,6 +89,22 @@ const quillToolbar = ref<HTMLDivElement | null>(null)
 const quillEditor = ref<HTMLDivElement | null>(null)
 const builderPreview = ref<HTMLDivElement | null>(null)
 let quill: any = null
+
+// palette 狀態與資料
+const paletteCollapsed = ref(props.collapsed)
+const nativeCollapsed = ref(false)
+const customCollapsed = ref(false)
+const allCollapsed = ref(false)
+const nativeItems = ref([
+  { id: 'chkReusable', component: 'PaletteCheckbox', props: { label: 'OK' } },
+  { id: 'txtReusable', component: 'PaletteTextarea', props: { placeholder: '請輸入...' } },
+  { id: 'sigReusable', component: 'PaletteSignature', props: {} }
+])
+const customItems = ref<any[]>([])
+
+watch(() => props.collapsed, (val) => {
+  paletteCollapsed.value = val
+})
 
 onMounted(() => {
   // 自訂 Blot 註冊
@@ -112,13 +131,13 @@ onMounted(() => {
   Quill.register(CheckboxBlot, true);
 
   class TextInputBlot extends InlineEmbed {
-    static create(value = { placeholder: '請輸入…', width: '150px' }) {
+    static create(value = { placeholder: '請輸入…', width: '100px' }) {
       const node = super.create();
       node.setAttribute('contenteditable', 'false');
       const input = document.createElement('input');
       input.type = 'text';
       input.placeholder = value.placeholder || '';
-      input.style.width = value.width || '150px';
+      input.style.width = value.width || '100px';
       node.appendChild(input);
       return node;
     }
@@ -164,7 +183,7 @@ function addCustomInput() {
   if (!quill) return
   const ph = builderInputPH.value?.value.trim() || '請輸入…'
   const index = quill.getSelection()?.index ?? quill.getLength()
-  quill.insertEmbed(index, 'textinput', { placeholder: ph, width: '150px' })
+  quill.insertEmbed(index, 'textinput', { placeholder: ph, width: '100px' })
   quill.insertText(index + 1, ' ')
   syncQuillToPreview()
 }
@@ -189,20 +208,9 @@ function clearBuilder() {
   syncQuillToPreview()
 }
 
-// palette 狀態與資料
-const paletteCollapsed = ref(false)
-const nativeCollapsed = ref(false)
-const customCollapsed = ref(false)
-const allCollapsed = ref(false)
-const nativeItems = ref([
-  { id: 'chkReusable', component: 'PaletteCheckbox', props: { label: 'OK' } },
-  { id: 'txtReusable', component: 'PaletteTextarea', props: { placeholder: '請輸入...' } },
-  { id: 'sigReusable', component: 'PaletteSignature', props: {} }
-])
-const customItems = ref<any[]>([])
-
 function togglePalette() {
   paletteCollapsed.value = !paletteCollapsed.value
+  emit('update:collapsed', paletteCollapsed.value)
 }
 function toggleBlock(type: 'native' | 'custom') {
   if (type === 'native') nativeCollapsed.value = !nativeCollapsed.value
@@ -265,3 +273,85 @@ onMounted(() => {
   loadCustomPalette()
 })
 </script>
+
+<style scoped>
+#palette-wrapper {
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  width: 320px;
+  background: #fafafa;
+  border-left: 1px solid #ccc;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px 12px 12px;
+  z-index: 998;
+  transition: transform 0.25s ease;
+}
+#palette-wrapper.collapsed {
+  transform: translateX(100%);
+}
+#palette {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#palette-toggle {
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 64px;
+  border: 1px solid #ccc;
+  border-radius: 6px 0 0 6px;
+  background: #fafafa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+  user-select: none;
+  font-size: 14px;
+}
+h4.collapsible {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin: 0 0 0.25rem;
+  font-weight: bold;
+  user-select: none;
+}
+h4.collapsible .caret {
+  margin-left: 6px;
+  font-size: 0.9rem;
+}
+.palette-block {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px dashed #999;
+  margin-bottom: 0.75rem;
+}
+.palette-block.collapsed {
+  display: none;
+}
+.palette-block.native {
+  background: #fffbe6;
+  border-color: #f0c36d;
+}
+.palette-block.custom {
+  background: #e8fbe9;
+  border-color: #4caf50;
+}
+fieldset {
+  border-radius: 10px;
+  border: 1px solid #bbb;
+  padding: 1.2rem 1.2rem 1rem 1.2rem;
+  background: #fff;
+}
+</style>

@@ -14,14 +14,14 @@
           <div style="font-weight:bold;">表格 {{ idx + 1 }}</div>
           <table :class="'tbl-' + idx" class="preview">
             <colgroup>
-              <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + 'px' : ''" />
+              <col v-for="(col, cIdx) in ((cfg.headerRows[0] || []))" :key="cIdx" :style="col.width ? 'width:' + col.width + '%' : ''" />
             </colgroup>
             <thead>
               <tr v-for="(row, rIdx) in cfg.headerRows" :key="rIdx">
                 <th v-for="(cell, cIdx) in row" :key="cIdx"
                   :colspan="cell.colspan > 1 ? cell.colspan : undefined"
                   :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
-                  :style="`text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;`"
+                  :style="`text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;${cell.bg ? `background:${cell.bg};` : ''}`"
                 > 
                   {{ cell.text || '\u00A0' }}<template v-if="cell.en"><br><small>{{ cell.en }}</small></template>
                 </th>
@@ -62,7 +62,9 @@
                       <textarea
                         v-model="cell.value.props.text"
                         :placeholder="cell.value.props.placeholder || ''"
-                        style="width:100%;min-height:32px;"
+                        style="width:100%;min-height:32px;overflow:hidden;resize:none;"
+                        ref="el => el && (el as HTMLTextAreaElement).style.height = 'auto', el && (el as HTMLTextAreaElement).style.height = (el as HTMLTextAreaElement).scrollHeight + 'px'"
+                        @input="e => { const t = e.target as HTMLTextAreaElement; if(t){ t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; } }"
                       ></textarea>
                     </template>
                     <template v-else-if="isCustomValue(cell.value)">
@@ -87,7 +89,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import PaletteSignature from './PaletteSignature.vue'
 import type { TableConfig, PaletteField } from '../types/table'
 
@@ -119,6 +121,15 @@ function loadSavedTable() {
     const obj = JSON.parse(raw)
     tableConfigs.value = obj.configs || []
     // 不再重建 cell.text，直接還原原始 HTML
+    // 新增：讀取後 nextTick 自動調整所有 textarea 高度
+    nextTick(() => {
+      document.querySelectorAll('textarea').forEach(el => {
+        if (el instanceof HTMLTextAreaElement) {
+          el.style.height = 'auto'
+          el.style.height = el.scrollHeight + 'px'
+        }
+      })
+    })
   } catch {
     tableConfigs.value = []
   }
@@ -213,10 +224,17 @@ onMounted(() => {
 <script lang="ts">
 import { defineComponent, h } from 'vue'
 
+// FieldRenderer: palette textarea 自動高度修正
 const FieldRenderer = defineComponent({
   name: 'FieldRenderer',
   props: { field: { type: Object, required: true } },
   setup(props) {
+    // textarea 自動高度
+    function autoResize(el: HTMLTextAreaElement | null) {
+      if (!el) return
+      el.style.height = 'auto'
+      el.style.height = el.scrollHeight + 'px'
+    }
     function renderField(field: any) {
       if (field.type === 'p') {
         return h('p', {}, (field.children || []).map(renderField))
@@ -229,7 +247,10 @@ const FieldRenderer = defineComponent({
           h('input', {
             type: 'checkbox',
             checked: field.props.checked,
-            onInput: (e: any) => { field.props.checked = e.target.checked }
+            onInput: (e: Event) => {
+              const target = e.target as HTMLInputElement | null
+              if (target) field.props.checked = target.checked
+            }
           }),
           field.props.label
         ])
@@ -238,15 +259,26 @@ const FieldRenderer = defineComponent({
           type: 'text',
           value: field.props.value,
           placeholder: field.props.placeholder,
-          style: 'width:150px;margin:0 4px 0 0;',
-          onInput: (e: any) => { field.props.value = e.target.value }
+          style: 'width:100px;margin:0 4px 0 0;',
+          onInput: (e: Event) => {
+            const target = e.target as HTMLInputElement | null
+            if (target) field.props.value = target.value
+          }
         })
       } else if (field.type === 'textarea') {
+        // textarea 自動高度，初次渲染與內容變動都觸發
         return h('textarea', {
           value: field.props.text,
           placeholder: field.props.placeholder || '',
-          style: 'width:100%;min-height:32px;',
-          onInput: (e: any) => { field.props.text = e.target.value }
+          style: 'width:100%;min-height:32px;overflow:hidden;resize:none;',
+          onVnodeMounted: ({ el }: any) => autoResize(el as HTMLTextAreaElement),
+          onInput: (e: Event) => {
+            const target = e.target as HTMLTextAreaElement | null
+            if (target) {
+              field.props.text = target.value
+              autoResize(target)
+            }
+          }
         })
       } else if (field.type === 'fragment') {
         return (field.children || []).map(renderField)
@@ -263,19 +295,5 @@ function resolveFieldComponent(field: any) {
 <style scoped>
 .table-block {
   margin-bottom: 2rem;
-}
-.preview {
-  border-collapse: collapse;
-  width: 100%;
-}
-th, td {
-  border: 1px solid #999;
-  padding: 0.6rem;
-  min-height: 44px;
-  text-align: left;
-  vertical-align: top;
-}
-th {
-  background: #f5f5f5;
 }
 </style>

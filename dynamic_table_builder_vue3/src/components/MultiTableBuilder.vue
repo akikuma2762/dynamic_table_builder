@@ -23,37 +23,43 @@
             </select>
           </label>
           <div class="headerRows">
-            <div v-for="r in cfg.headerRowsLen" :key="r" class="row-config">
-              <strong>第 {{ r }} 列</strong>
-              <button type="button" @click="addHeaderCell(idx, r-1)">新增儲存格</button>
-              <div class="cells-wrapper">
-                <div v-for="(cell, i) in cfg.headerRows[r-1]" :key="i" class="cell-config" :class="{collapsed: cell.collapsed}">
-                  <div class="cell-header" @click="toggleHeaderCellCollapse(cell)">
-                    <span>儲存格設定-{{ i+1 }}</span>
-                    <button type="button" class="collapse-btn">{{ cell.collapsed ? '+' : '–' }}</button>
-                  </div>
-                  <div class="body" v-show="!cell.collapsed">
-                    <label><div class="title">中文</div><input type="text" v-model="cell.text"></label>
-                    <label><div class="title">英文</div><input type="text" v-model="cell.en"></label>
-                    <label><div class="title">合併欄</div><input type="number" min="1" v-model.number="cell.colspan"></label>
-                    <label><div class="title">合併列</div><input type="number" min="1" v-model.number="cell.rowspan"></label>
-                    <label><div class="title">寬度比例</div><input type="number" min="0" v-model="cell.width"></label>
-                    <label><div class="title">文字對齊</div>
-                      <select v-model="cell.align">
-                        <option value="left">靠左</option>
-                        <option value="center">置中</option>
-                        <option value="right">靠右</option>
-                      </select>
-                    </label>
-                    <label><div class="title">字體顏色</div><input type="color" v-model="cell.color"></label>
-                    <label><div class="title">字體大小(px)</div><input type="number" min="8" v-model.number="cell.size"></label>
-                    <label><div class="title">索引</div>
-                      <select v-model="cell.indexed">
-                        <option :value="false">不啟用</option>
-                        <option :value="true">啟用</option>
-                      </select>
-                    </label>
-                    <button type="button" class="remove-button" @click="removeHeaderCell(idx, r-1, i)">移除</button>
+            <div v-for="r in cfg.headerRowsLen" :key="r">
+              <div class="row-main-title" @click="toggleHeaderRowCollapse(idx, r-1)">
+                {{ headerRowCollapse[idx] && headerRowCollapse[idx][r-1] !== false ? '▼' : '▶' }} 表頭第 {{ r }} 列
+              </div>
+              <div class="row-config" v-show="headerRowCollapse[idx] && headerRowCollapse[idx][r-1] !== false">
+                <strong>第 {{ r }} 列</strong>
+                <button type="button" @click="addHeaderCell(idx, r-1)">新增儲存格</button>
+                <div class="cells-wrapper">
+                  <div v-for="(cell, i) in cfg.headerRows[r-1]" :key="i" class="cell-config" :class="{collapsed: cell.collapsed}">
+                    <div class="cell-header" @click="toggleHeaderCellCollapse(cell)">
+                      <span>儲存格設定-{{ i+1 }}</span>
+                      <button type="button" class="collapse-btn">{{ cell.collapsed ? '+' : '–' }}</button>
+                    </div>
+                    <div class="body" v-show="!cell.collapsed">
+                      <label><div class="title">背景色</div><input type="color" v-model="cell.bg"></label>
+                      <label><div class="title">中文</div><input type="text" v-model="cell.text"></label>
+                      <label><div class="title">英文</div><input type="text" v-model="cell.en"></label>
+                      <label><div class="title">合併欄</div><input type="number" min="1" v-model.number="cell.colspan"></label>
+                      <label><div class="title">合併列</div><input type="number" min="1" v-model.number="cell.rowspan"></label>
+                      <label><div class="title">寬度比例</div><input type="number" min="0" v-model="cell.width"></label>
+                      <label><div class="title">文字對齊</div>
+                        <select v-model="cell.align">
+                          <option value="left">靠左</option>
+                          <option value="center">置中</option>
+                          <option value="right">靠右</option>
+                        </select>
+                      </label>
+                      <label><div class="title">字體顏色</div><input type="color" v-model="cell.color"></label>
+                      <label><div class="title">字體大小(px)</div><input type="number" min="8" v-model.number="cell.size"></label>
+                      <label><div class="title">索引</div>
+                        <select v-model="cell.indexed">
+                          <option :value="false">不啟用</option>
+                          <option :value="true">啟用</option>
+                        </select>
+                      </label>
+                      <button type="button" class="remove-button" @click="removeHeaderCell(idx, r-1, i)">移除</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -68,7 +74,6 @@
         <!-- 色彩設定 -->
         <fieldset>
           <legend>色彩設定</legend>
-          <label>表頭背景色 <input type="color" v-model="cfg.headerBg"></label>
           <label>預設資料列背景色 <input type="color" v-model="cfg.dataBg"></label>
         </fieldset>
         <!-- 詳細設定 -->
@@ -147,6 +152,7 @@ const nameList = ref<string[]>([])
 const tableConfigs = ref<TableConfig[]>([])
 const previewTables = ref('')
 const rowCollapse = reactive<any>({})
+const headerRowCollapse = reactive<any>({})
 
 function getNameList() {
   try {
@@ -166,12 +172,17 @@ function onNumTablesChange() {
   tableConfigs.value.length = numTables.value
   for (let i = 0; i < numTables.value; i++) {
     if (!rowCollapse[i]) rowCollapse[i] = []
+    if (!headerRowCollapse[i]) headerRowCollapse[i] = []
     const cfg = tableConfigs.value[i]
     for (let j = 0; j < cfg.dataRowsLen; j++) {
       if (typeof rowCollapse[i][j] !== 'boolean') rowCollapse[i][j] = true
     }
+    for (let r = 0; r < cfg.headerRowsLen; r++) {
+      if (typeof headerRowCollapse[i][r] !== 'boolean') headerRowCollapse[i][r] = true
+    }
     // 移除多餘的 collapse 狀態
     rowCollapse[i].length = cfg.dataRowsLen
+    headerRowCollapse[i].length = cfg.headerRowsLen
   }
 }
 function onMergeChange() {
@@ -227,9 +238,13 @@ function toggleRowCollapse(tIdx: number, rIdx: number) {
   if (typeof rowCollapse[tIdx][rIdx] !== 'boolean') rowCollapse[tIdx][rIdx] = true
   rowCollapse[tIdx][rIdx] = !rowCollapse[tIdx][rIdx]
 }
+function toggleHeaderRowCollapse(tIdx: number, rIdx: number) {
+  if (!headerRowCollapse[tIdx]) headerRowCollapse[tIdx] = []
+  headerRowCollapse[tIdx][rIdx] = !headerRowCollapse[tIdx][rIdx]
+}
 function createDefaultHeaderCell(): HeaderCell {
   return {
-    text: '', en: '', colspan: 1, rowspan: 1, width: '', align: 'left', color: '#000000', size: 16, indexed: false, collapsed: false
+    text: '', en: '', colspan: 1, rowspan: 1, width: '', align: 'left', color: '#000000', size: 16, indexed: false, collapsed: false, bg: '#e0eaff'
   }
 }
 function createDefaultCell(): DataCell {
@@ -243,7 +258,6 @@ function createDefaultConfig(): TableConfig {
     headerRows: [[]],
     dataRowsLen: 1,
     dataRowsCfg: [{ color: '#ffffff', cells: [] }],
-    headerBg: '#e0eaff',
     dataBg: '#ffffff'
   }
 }
@@ -304,14 +318,12 @@ function onRowDrop(e: DragEvent, tIdx: number, rIdx: number) {
 function generatePreview() {
   let html = ''
   tableConfigs.value.forEach((cfg, idx) => {
-    const hBg = cfg.headerBg || '#e0eaff'
     const dBg = cfg.dataBg || '#fff'
-    const hColor = getContrastColor(hBg)
     const leaf = getLeaf(cfg)
     const colgroup = `<colgroup>${leaf.map((l: any) => `<col style="${l.width ? `width:${l.width}%;` : ''}"></col>`).join('')}</colgroup>`
-    const thead = cfg.headerRows.map((r: any[]) => `<tr>${r.map((cell: any) => `<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''} style=\"text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;\">${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('')
+    const thead = cfg.headerRows.map((r: any[]) => `<tr>${r.map((cell: any) => `<th${cell.colspan>1?` colspan=\"${cell.colspan}\"`:''}${cell.rowspan>1?` rowspan=\"${cell.rowspan}\"`:''}${cell.en?` data-column=\"${cell.en}\"`:''} style=\"background:${cell.bg||'#e0eaff'};text-align:${cell.align};color:${cell.color};font-size:${cell.size}px;\">${cell.text||'&nbsp;'}${cell.en?`<br><small>${cell.en}</small>`:''}</th>`).join('')}</tr>`).join('')
     const tbody = buildTbody(cfg, dBg)
-    html += `<style>.tbl-${idx} th{background:${hBg};color:${hColor};}</style><table class=\"preview tbl-${idx}${mergeTables.value&&idx>0?' merged':''}\">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table><br>`
+    html += `<table class=\"preview tbl-${idx}${mergeTables.value&&idx>0?' merged':''}\">${colgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table><br>`
   })
   previewTables.value = html
 }
@@ -414,7 +426,7 @@ function loadFromLocal() {
 // 初始化
 onNumTablesChange()
 </script>
-<style>
+<style scoped>
 html,
 body {
   overscroll-behavior: contain;
@@ -459,38 +471,6 @@ button {
   cursor: pointer;
 }
 
-/* —— 預覽表格 —— */
-table.preview {
-  border-collapse: separate;
-  border-spacing: 0;
-  width: 100%;
-}
-table.preview th,
-table.preview td {
-  border-top: 1px solid #000;
-  border-left: 1px solid #000;
-  padding: 4px 6px;
-  word-wrap: break-word;
-}
-table.preview th:last-child,
-table.preview td:last-child {
-  border-right: 1px solid #000;
-}
-table.preview tbody tr:last-child td {
-  border-bottom: 1px solid #000;
-}
-table.preview thead tr:first-child th:first-child {
-  border-top-left-radius: 8px;
-}
-table.preview thead tr:first-child th:last-child {
-  border-top-right-radius: 8px;
-}
-table.preview tbody tr:last-child td:first-child {
-  border-bottom-left-radius: 8px;
-}
-table.preview tbody tr:last-child td:last-child {
-  border-bottom-right-radius: 8px;
-}
 
 /* —— 編輯面板 —— */
 .row-config {
@@ -569,6 +549,8 @@ table.preview tbody tr:last-child td:last-child {
   border-radius: 4px;
   background: #f9f9f9;
   transition: max-height 0.3s ease;
+  box-sizing: border-box;
+  width: 100%;
 }
 .cell-config.collapsed .body {
   display: none;

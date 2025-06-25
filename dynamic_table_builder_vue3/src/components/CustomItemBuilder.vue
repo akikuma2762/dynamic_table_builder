@@ -90,7 +90,7 @@ function addCustomInput() {
     const ph = builderInputPH.value || '請輸入…'
     const insertIndex = quill.getLength() - 1 // 強制插入到內容最後
     quill.setSelection(insertIndex, 0)
-    quill.insertEmbed(insertIndex, 'textinput', { placeholder: ph, width: '150px' }, 'user')
+    quill.insertEmbed(insertIndex, 'textinput', { placeholder: ph, width: '750px' }, 'user')
     const newLen = quill.getLength()
     quill.setSelection(Math.min(insertIndex + 1, newLen - 1), 0)
   } catch (e) {

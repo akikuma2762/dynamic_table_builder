@@ -1,0 +1,45 @@
+/* 全域 table 樣式，適用於所有表格（含 v-html 動態產生） */
+table.preview {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  overflow: hidden;
+}
+table.preview th,
+table.preview td {
+  /* border-top: 1px solid #000;
+  border-left: 1px solid #000; */
+  padding: 4px 6px;
+  word-wrap: break-word;
+}
+/* table.preview th:last-child,
+table.preview td:last-child {
+  border-right: 1px solid #000;
+}
+table.preview tbody tr:last-child td {
+  border-bottom: 1px solid #000;
+} */
+table.preview thead tr:first-child th:first-child {
+  border-top-left-radius: 8px;
+}
+table.preview thead tr:first-child th:last-child {
+  border-top-right-radius: 8px;
+}
+table.preview tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 8px;
+}
+table.preview tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 8px;
+}
+th, td {
+  border: 1px solid #dddddd;
+  padding: 0.6rem;
+  min-height: 44px;
+  text-align: left;
+  vertical-align: middle;
+  white-space:pre-line;
+}
+th {
+  background: #f5f5f5;
+}
+

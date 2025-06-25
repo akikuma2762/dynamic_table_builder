@@ -4,8 +4,10 @@ import App from './App.vue'
 import router from './router'
 import Quill from 'quill'
 import { QuillEditor } from '@vueup/vue-quill'
+import './assets/table-global.css'
+import './assets/draggable-item.css'
 
-// ===== Quill 自訂 Blot 註冊（checkbox 與 inputbox） =====
+// ===== Quill 自訂 Blot 註冊（checkbox 與 inputbox）=====
 const Inline = Quill.import('blots/inline')
 class CheckboxBlot extends Inline {
   static create(value = { label: 'OK' }) {
@@ -29,12 +31,12 @@ CheckboxBlot.tagName = 'span';
 Quill.register(CheckboxBlot, true);
 
 class TextInputBlot extends Inline {
-  static create(value = { placeholder: '請輸入…', width: '150px' }) {
+  static create(value = { placeholder: '請輸入…', width: '100px' }) {
     const node = super.create();
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = value.placeholder || '';
-    input.style.width = value.width || '150px';
+    //input.style.width = value.width || '100px';
     node.appendChild(input);
     return node;
   }

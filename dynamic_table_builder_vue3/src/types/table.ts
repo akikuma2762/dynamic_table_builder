@@ -9,6 +9,7 @@ export interface HeaderCell {
   size: number
   indexed: boolean
   collapsed?: boolean // UI用，可選
+  bg: string // 新增：表頭儲存格背景色
 }
 
 export interface PaletteField {
@@ -41,6 +42,12 @@ export interface TableConfig {
   headerRows: HeaderCell[][]
   dataRowsLen: number
   dataRowsCfg: DataRow[]
-  headerBg: string
-  dataBg: string
+  // headerBg: string // 已移除，改由 cell.bg 控制
+  dataBg: string // 若要移除預設資料列背景色可再調整
+}
+
+export interface TableMultiFile {
+  configs: TableConfig[]
+  numTables: number
+  merge: boolean
 }

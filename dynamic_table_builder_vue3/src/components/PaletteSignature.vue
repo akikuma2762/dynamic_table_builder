@@ -8,7 +8,7 @@
         style="border:1px solid #aaa; background:#fff; width:200px; height:60px; object-fit:contain; cursor:pointer;"
         @click="openModal"
       />
-      <div v-else style="width:200px;height:60px;border:1px solid #aaa;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;" @click="openModal">
+      <div v-else style="width:100%;height:60px;border:1px solid #aaa;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;" @click="openModal">
         <span style="color:#bbb;">點擊簽名</span>
       </div>
     </template>
