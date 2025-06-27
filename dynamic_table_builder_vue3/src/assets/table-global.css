@@ -4,6 +4,7 @@ table.preview {
   border-spacing: 0;
   width: 100%;
   overflow: hidden;
+  table-layout: fixed;
 }
 table.preview th,
 table.preview td {

@@ -523,11 +523,10 @@ function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: stri
 }
 </script>
 <style scoped>
-.multi-table-preview-root {
-  font-family: "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
-  margin: 1.5rem;
-  transition: margin-right 0.3s, width 0.3s;
-  margin-right: 340px;
+.multi-table-preview-root{
+      display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
 }
 .multi-table-preview-root.palette-collapsed {
   margin-right: 24px;
