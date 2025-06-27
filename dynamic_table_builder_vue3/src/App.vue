@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
-import router from './router';
+// import HelloWorld from './components/HelloWorld.vue'
+// import router from './router';
 </script>
 
 <template>
