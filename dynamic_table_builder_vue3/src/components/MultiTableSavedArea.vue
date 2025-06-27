@@ -69,7 +69,7 @@
                     </template>
                     <template v-else-if="isCustomValue(cell.value)">
                       <template v-for="field in cell.value.fields" :key="field.key">
-                        <component :is="resolveFieldComponent(field)" :field="field" />
+                        <component :is="resolveFieldComponent()" :field="field" />
                       </template>
                     </template>
                     <template v-else-if="cell.text && cell.text.trim() !== ''">
@@ -93,6 +93,7 @@ import { ref, onMounted, nextTick } from 'vue'
 import PaletteSignature from './PaletteSignature.vue'
 import type { TableConfig, PaletteField } from '../types/table'
 
+// @ts-ignore
 function isCustomValue(val: any): val is { type: 'custom'; fields: PaletteField[] } {
   return val && val.type === 'custom' && Array.isArray(val.fields)
 }
@@ -101,6 +102,7 @@ const nameList = ref<string[]>([])
 const selectedName = ref('')
 const tableConfigs = ref<TableConfig[]>([])
 
+// @ts-ignore
 function getSavedNameList() {
   try {
     return JSON.parse(localStorage.getItem('previewTableMulti__names') || '[]')
@@ -108,10 +110,12 @@ function getSavedNameList() {
     return []
   }
 }
+// @ts-ignore
 function reload() {
   nameList.value = getSavedNameList()
   if (selectedName.value) loadSavedTable()
 }
+// @ts-ignore
 function loadSavedTable() {
   const name = selectedName.value
   if (!name) { tableConfigs.value = []; return }
@@ -134,6 +138,7 @@ function loadSavedTable() {
     tableConfigs.value = []
   }
 }
+// @ts-ignore
 function getLeaf(cfg: TableConfig) {
   const g: any[] = []
   const R = cfg.headerRows.length
@@ -157,6 +162,7 @@ function getLeaf(cfg: TableConfig) {
   }
   return R ? g[R - 1] : []
 }
+// @ts-ignore
 function getContrastColor(hex: string) {
   if (!hex || hex.length !== 7) return '#000'
   const r = parseInt(hex.substr(1, 2), 16)
@@ -164,6 +170,7 @@ function getContrastColor(hex: string) {
   const b = parseInt(hex.substr(5, 2), 16)
   return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff'
 }
+// @ts-ignore
 function isCellCovered(r: number, c: number, cfg: TableConfig) {
   const rows = cfg.dataRowsCfg.length
   const cols = cfg.dataRowsCfg[0].cells.length
@@ -182,6 +189,7 @@ function isCellCovered(r: number, c: number, cfg: TableConfig) {
   }
   return occ[r][c]
 }
+// @ts-ignore
 function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: string) {
   if (cfg && cfg.dataRowsCfg && cfg.dataRowsCfg[rIdx] && cfg.dataRowsCfg[rIdx].cells[cIdx]) {
     const cell = cfg.dataRowsCfg[rIdx].cells[cIdx]
@@ -193,7 +201,7 @@ function updateSignature(cfg: TableConfig, rIdx: number, cIdx: number, img: stri
     }
   }
 }
-
+// @ts-ignore
 function stripPaletteHtml(html: string): string {
   if (!html) return ''
   return html
@@ -204,6 +212,7 @@ function stripPaletteHtml(html: string): string {
     .replace(/<div[^>]*>/g, '')
     .replace(/<\/div>/g, '')
 }
+// @ts-ignore
 function saveAllChanges() {
   if (!selectedName.value) {
     alert('請先選擇檔案');
@@ -288,7 +297,7 @@ const FieldRenderer = defineComponent({
     return () => renderField(props.field)
   }
 })
-function resolveFieldComponent(field: any) {
+function resolveFieldComponent() {
   return FieldRenderer
 }
 </script>

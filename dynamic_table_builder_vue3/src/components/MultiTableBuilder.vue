@@ -82,7 +82,7 @@
           <small>※ 需先建立表頭後才能設定。</small>
           <div class="dataRowsDetail">
             <div v-for="(row, ri) in cfg.dataRowsCfg" :key="ri">
-              <div class="row-main-title" :draggable="true" @dragstart="onRowDragStart($event, idx, ri)" @dragover.prevent="onRowDragOver($event, idx, ri)" @drop.prevent="onRowDrop($event, idx, ri)" @click="toggleRowCollapse(idx, ri)">
+              <div class="row-main-title" :draggable="true" @dragstart="onRowDragStart($event, ri)" @dragover.prevent="onRowDragOver($event)" @drop.prevent="onRowDrop(idx, ri)" @click="toggleRowCollapse(idx, ri)">
                 {{ rowCollapse[idx][ri] ? '▼' : '▶' }} 資料列 {{ ri+1 }}
               </div>
               <div class="row-config" v-show="rowCollapse[idx][ri]">
@@ -142,7 +142,7 @@
 </template>
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import type { TableConfig, HeaderCell, DataCell, DataRow } from '../types/table'
+import type { TableConfig, HeaderCell, DataCell } from '../types/table'
 
 const numTables = ref(1)
 const mergeTables = ref(false)
@@ -298,14 +298,14 @@ function getIndexNumber(cfg: any, ri: number, ci: number) {
 
 // 拖曳排序
 let dragRowIdx = -1
-function onRowDragStart(e: DragEvent, tIdx: number, rIdx: number) {
+function onRowDragStart(e: DragEvent,  rIdx: number) {
   dragRowIdx = rIdx
   e.dataTransfer?.setData('text/plain', String(rIdx))
 }
-function onRowDragOver(e: DragEvent, tIdx: number, rIdx: number) {
+function onRowDragOver(e: DragEvent) {
   e.preventDefault()
 }
-function onRowDrop(e: DragEvent, tIdx: number, rIdx: number) {
+function onRowDrop( tIdx: number, rIdx: number) {
   if (dragRowIdx === -1 || dragRowIdx === rIdx) return
   const cfg = tableConfigs.value[tIdx]
   const moved = cfg.dataRowsCfg.splice(dragRowIdx, 1)[0]
@@ -382,7 +382,7 @@ function saveToLocal() {
     const leaf = getLeaf(cfg)
     const cols = leaf.length
     let indexCounters = Array(cols).fill(1)
-    cfg.dataRowsCfg.forEach((row: any, ri: number) => {
+    cfg.dataRowsCfg.forEach((row: any) => {
       row.cells.forEach((cell: any, ci: number) => {
         if (leaf[ci]?.indexed && (+cell.colspan === 1) && (+cell.rowspan === 1)) {
           cell.text = String(indexCounters[ci])
