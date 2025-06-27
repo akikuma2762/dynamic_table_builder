@@ -1,0 +1,32 @@
+﻿/* ==========================================================================
+   表格溢出問題修正 - 使用 PowerShell 語法生成
+   ========================================================================== */
+
+.table-block {
+  /* 核心溢出控制 - 確保不會超出父容器 */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  
+  /* 現代化的 CSS Grid 處理 */
+  display: block;
+  container-type: inline-size;
+  
+  /* 滾動行為優化 */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  
+  /* 邊界處理 */
+  box-sizing: border-box;
+  position: relative;
+  
+  /* 視覺樣式 */
+  background: white;
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}

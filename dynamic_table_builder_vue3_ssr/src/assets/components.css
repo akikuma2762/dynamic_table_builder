@@ -1,0 +1,1089 @@
+/* ==========================================================================
+   元件專用樣式系統 - 針對多表格產生器元件的 UI/UX 優化
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   多表格建立器 - MultiTableBuilder 優化
+   -------------------------------------------------------------------------- */
+
+.multi-table-builder {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+}
+
+.multi-table-builder h2 {
+  color: var(--color-primary);
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+}
+
+.multi-table-builder fieldset {
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.multi-table-builder legend {
+  color: var(--color-primary);
+  font-weight: 600;
+  padding: 0 var(--spacing-sm);
+  background: var(--color-surface);
+}
+
+/* 表格配置區塊 */
+.table-config-block {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+}
+
+.table-config-block:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.table-config-block h3 {
+  color: var(--color-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 2px solid var(--color-primary-light);
+}
+
+/* 表頭設定區域 */
+.headerRows {
+  background: var(--color-surface);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+}
+
+.row-main-title {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+  transition: all 0.2s ease;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.row-main-title:hover {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+  transform: translateX(4px);
+}
+
+.row-main-title[draggable="true"] {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%);
+  cursor: grab;
+}
+
+.row-main-title[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* 列配置區域 */
+.row-config {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+    padding-top: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+  }
+}
+
+/* 儲存格配置 */
+.cells-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.cell-config {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.cell-config:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-md);
+}
+
+.cell-config.collapsed {
+  opacity: 0.7;
+}
+
+.cell-header {
+  background: linear-gradient(135deg, var(--color-gray-50) 0%, var(--color-gray-100) 100%);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.cell-header:hover {
+  background: linear-gradient(135deg, var(--color-gray-100) 0%, var(--color-gray-200) 100%);
+}
+
+.collapse-btn {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.collapse-btn:hover {
+  background: var(--color-primary-dark);
+  transform: scale(1.1);
+}
+
+.cell-config .body {
+  padding: var(--spacing-md);
+  background: var(--color-surface);
+}
+
+.cell-config .body label {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--spacing-sm);
+  gap: var(--spacing-xs);
+}
+
+.cell-config .title {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* 表單元素優化 */
+.multi-table-builder input[type="text"],
+.multi-table-builder input[type="number"],
+.multi-table-builder select,
+.multi-table-builder textarea {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: var(--color-surface);
+}
+
+.multi-table-builder input[type="text"]:focus,
+.multi-table-builder input[type="number"]:focus,
+.multi-table-builder select:focus,
+.multi-table-builder textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.multi-table-builder input[type="color"] {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: 2px;
+  width: 40px;
+  height: 32px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.multi-table-builder input[type="color"]:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.multi-table-builder textarea {
+  min-height: 60px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* 按鈕優化 */
+.multi-table-builder button {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.multi-table-builder button:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.multi-table-builder button:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.multi-table-builder .remove-button {
+  background: var(--color-danger);
+  font-size: 0.75rem;
+  padding: calc(var(--spacing-xs) - 2px) var(--spacing-sm);
+}
+
+.multi-table-builder .remove-button:hover {
+  background: var(--color-danger-dark);
+}
+
+/* 資料列詳細設定區域 */
+.dataRowsDetail {
+  background: var(--color-surface);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+}
+
+.dataRowsDetail small {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  display: block;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* 拖曳狀態優化 */
+.row-main-title.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+}
+
+.dataRowsDetail [draggable="true"]:hover {
+  background: linear-gradient(135deg, var(--color-accent-light) 0%, var(--color-accent) 100%);
+}
+
+/* 預覽區域 */
+#table-output-wrapper {
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-lg);
+  background: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.preview-area {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: var(--spacing-md);
+  background: white;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+}
+
+/* --------------------------------------------------------------------------
+   Palette 元件 - 現代化互動式元件
+   -------------------------------------------------------------------------- */
+
+.palette-checkbox {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  margin-bottom: var(--spacing-xs);
+}
+
+.palette-checkbox:hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  transform: translateX(4px);
+}
+
+.palette-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-right: var(--spacing-sm);
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.palette-checkbox label {
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+  flex: 1;
+}
+
+.palette-textarea {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  transition: all 0.2s ease;
+  resize: vertical;
+  width: 100%;
+  min-height: 40px;
+}
+
+.palette-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: white;
+}
+
+.palette-textarea::placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* --------------------------------------------------------------------------
+   自訂項目建立器 - CustomItemBuilder 優化
+   -------------------------------------------------------------------------- */
+
+.custom-item-builder {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.custom-item-builder legend {
+  background: var(--color-primary);
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.builder-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.builder-input-group label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 200px;
+}
+
+.builder-input-group label > div {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.builder-input-group input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm);
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.builder-input-group input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.builder-input-group button {
+  background: var(--color-success);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.builder-input-group button:hover {
+  background: var(--color-success-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.builder-preview {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  min-height: 60px;
+  background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+  margin: var(--spacing-md) 0;
+  position: relative;
+}
+
+.builder-preview:empty::before {
+  content: '預覽區域 - 建立的內容將在此顯示';
+  color: var(--color-text-muted);
+  font-style: italic;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.builder-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.builder-actions button {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.builder-actions button:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.builder-actions button:last-child {
+  background: var(--color-gray-500);
+}
+
+.builder-actions button:last-child:hover {
+  background: var(--color-gray-600);
+}
+
+/* ==========================================================================
+   新增的 CSS 變數 - 支援元件優化
+   ========================================================================== */
+
+:root {
+  /* 擴展的顏色系統 */
+  --color-success-light: #d1fae5;
+  --color-success-dark: #047857;
+  --color-danger-light: #fee2e2;
+  --color-danger-dark: #b91c1c;
+  --color-warning-light: #fef3c7;
+  --color-warning-dark: #d97706;
+  --color-info-light: #dbeafe;
+  --color-info-dark: #1d4ed8;
+  
+  /* 新增的間距 */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+  
+  /* 新增的陰影 */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  
+  /* 新增的邊框半徑 */
+  --border-radius-xl: 16px;
+  --border-radius-2xl: 24px;
+  --border-radius-full: 9999px;
+  
+  /* 字體權重 */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* 過渡效果 */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  
+  /* Z-index 層級 */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+}
+
+/* ==========================================================================
+   多表格建立器特定樣式擴展
+   ========================================================================== */
+
+.table-count-indicator {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.table-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--border-radius-full);
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+
+.merge-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--color-primary-light);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: var(--transition-base);
+}
+
+.merge-checkbox:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.merge-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.tables-config-container {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.header-config,
+.data-rows-config,
+.color-config,
+.detailed-config {
+  position: relative;
+}
+
+.header-row-section {
+  margin-bottom: var(--spacing-md);
+}
+
+.row-config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.add-cell-btn {
+  background: var(--color-success);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-base);
+}
+
+.add-cell-btn:hover {
+  background: var(--color-success-dark);
+  transform: translateY(-1px);
+}
+
+.cell-count-badge {
+  background: var(--color-accent);
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-full);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  margin-left: auto;
+}
+
+.collapse-indicator {
+  font-size: 1rem;
+  transition: var(--transition-fast);
+}
+
+.cell-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.config-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.cell-preview {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.index-badge {
+  background: var(--color-warning);
+  color: white;
+  padding: 2px var(--spacing-xs);
+  border-radius: var(--border-radius);
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+.auto-index-note {
+  color: var(--color-success);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.data-row-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.row-count {
+  background: var(--color-info);
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-full);
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.color-preview {
+  width: 60px;
+  height: 32px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+}
+
+.config-hint {
+  background: var(--color-info-light);
+  border: 1px solid var(--color-info);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.config-hint small {
+  color: var(--color-info-dark);
+  line-height: 1.4;
+}
+
+.data-row-item {
+  margin-bottom: var(--spacing-sm);
+}
+
+.drag-handle {
+  cursor: grab;
+  font-size: 1rem;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.row-color-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--border-radius);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-left: auto;
+}
+
+.row-basic-config {
+  margin-bottom: var(--spacing-sm);
+}
+
+.action-section {
+  background: var(--color-surface);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.generate-section,
+.save-load-section,
+.preview-section {
+  margin-bottom: var(--spacing-md);
+}
+
+.generate-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.generate-btn {
+  background: linear-gradient(135deg, var(--color-success) 0%, var(--color-success-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: 1rem;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: var(--transition-base);
+  box-shadow: var(--shadow-md);
+}
+
+.generate-btn:hover {
+  background: linear-gradient(135deg, var(--color-success-dark) 0%, var(--color-success) 100%);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.preview-info {
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.save-load-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+.save-group,
+.load-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.save-group label,
+.load-group label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.save-btn {
+  background: var(--color-primary);
+}
+
+.save-btn:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.load-btn {
+  background: var(--color-accent);
+}
+
+.load-btn:hover:not(:disabled) {
+  background: var(--color-accent-dark);
+}
+
+.saved-files-info {
+  margin-top: var(--spacing-sm);
+  text-align: center;
+}
+
+.saved-files-info small {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* --------------------------------------------------------------------------
+   表格容器溢出處理優化
+   ========================================================================== */
+
+.table-block {
+  /* 確保容器不會超出父元素 */
+  max-width: 100%;
+  width: 100%;
+  /* 水平滾動處理 */
+  overflow-x: auto;
+  overflow-y: visible;
+  /* 防止容器收縮過小 */
+  min-width: 0;
+  /* 確保盒子模型正確 */
+  box-sizing: border-box;
+  /* 現代化樣式 */
+  background: white;
+  border: 2px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+  /* 防止內容溢出 */
+  position: relative;
+}
+
+.table-block:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-lg);
+}
+
+.table-block.dragover {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 3px var(--color-success-light);
+  background: linear-gradient(135deg, #f0fff4, #dcfce7);
+}
+
+/* 表格本身的優化 */
+.table-block table {
+  /* 確保表格不會超出容器 */
+  width: 100%;
+  max-width: 100%;
+  /* 使用自動佈局以更好地處理內容 */
+  table-layout: auto;
+  /* 移除固定的 word-break，改用更溫和的處理 */
+  word-wrap: break-word;
+  word-break: normal;
+  /* 確保最小寬度 */
+  min-width: 600px; /* 確保表格有最小寬度，觸發滾動 */
+}
+
+/* 儲存格內容優化 */
+.table-block td,
+.table-block th {
+  /* 更好的文字處理 */
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  /* 防止儲存格過度收縮 */
+  min-width: 80px;
+  max-width: 300px;
+  /* 垂直對齊 */
+  vertical-align: top;
+  /* 適當的內邊距 */
+  padding: var(--spacing-sm) var(--spacing-xs);
+  /* 邊框處理 */
+  border: 1px solid var(--color-border);
+}
+
+/* 特殊情況：當表格內容很寬時 */
+.table-block table.wide-content {
+  min-width: 100%;
+  width: max-content;
+}
+
+/* 滾動條美化 */
+.table-block::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-block::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+  border-radius: var(--border-radius);
+}
+
+.table-block::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: var(--border-radius);
+}
+
+.table-block::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* Firefox 滾動條 */
+.table-block {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) var(--color-gray-100);
+}
+
+/* 響應式處理 */
+@media (max-width: 768px) {
+  .table-block {
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+  }
+  
+  .table-block table {
+    min-width: 500px; /* 在小螢幕上稍微減少最小寬度 */
+    font-size: 0.875rem;
+  }
+  
+  .table-block td,
+  .table-block th {
+    min-width: 60px;
+    max-width: 200px;
+    padding: var(--spacing-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .table-block table {
+    min-width: 400px; /* 在非常小的螢幕上進一步減少 */
+    font-size: 0.8rem;
+  }
+  
+  .table-block td,
+  .table-block th {
+    min-width: 50px;
+    max-width: 150px;
+    padding: 4px;
+  }
+}
+
+/* 表格容器提示 */
+.table-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), transparent);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.table-block:hover::before {
+  opacity: 1;
+}
+
+/* 當表格有水平滾動時的視覺提示 */
+.table-block.has-scroll {
+  position: relative;
+}
+
+.table-block.has-scroll::after {
+  content: '← 滑動查看更多 →';
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  padding: 2px 8px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* 表格內的 Palette 項目處理 */
+.table-block .palette-item {
+  /* 確保 palette 項目不會破壞表格佈局 */
+  max-width: 100%;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: top;
+}
+
+/* 拖拽狀態下的視覺回饋 */
+.table-block td.drop-hover {
+  background: linear-gradient(135deg, var(--color-success-light), var(--color-success));
+  border-color: var(--color-success);
+  box-shadow: inset 0 0 8px rgba(34, 197, 94, 0.3);
+  animation: pulse-success 1s infinite;
+}
+
+@keyframes pulse-success {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+/* 打印樣式 */
+@media print {
+  .table-block {
+    border: 1px solid #000;
+    box-shadow: none;
+    overflow: visible;
+    page-break-inside: avoid;
+  }
+  
+  .table-block table {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .table-block::before,
+  .table-block::after {
+    display: none;
+  }
+}

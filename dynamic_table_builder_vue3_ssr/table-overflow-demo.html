@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>表格溢出測試 - 動態表格產生器</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 20px;
+            background: #f8fafc;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .demo-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        .demo-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 15px;
+        }
+        .demo-description {
+            color: #64748b;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        /* 模擬原本的問題樣式 */
+        .old-table-block {
+            border: 1px dashed #bbb;
+            margin-bottom: 1.5rem;
+            background: #fff;
+            max-width: 100%;
+            overflow-x: auto;
+            box-sizing: border-box;
+            border-radius: 10px;
+            padding: 0.5rem;
+        }
+        .old-table-block table {
+            width: 100%;
+            table-layout: fixed;
+            word-break: break-all;
+        }
+        .old-table-block td, .old-table-block th {
+            border: 1px solid #ddd;
+            padding: 8px;
+            min-width: 80px;
+        }
+        /* 使用新的優化樣式 */
+        .new-table-block {
+            max-width: 100%;
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: visible;
+            min-width: 0;
+            box-sizing: border-box;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .new-table-block:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+        }
+        .new-table-block table {
+            width: 100%;
+            max-width: 100%;
+            table-layout: auto;
+            word-wrap: break-word;
+            word-break: normal;
+            min-width: 600px;
+            border-collapse: collapse;
+        }
+        .new-table-block td, .new-table-block th {
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            min-width: 80px;
+            max-width: 300px;
+            vertical-align: top;
+            padding: 12px 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .new-table-block th {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            color: #1e40af;
+            font-weight: 600;
+        }
+        .new-table-block::-webkit-scrollbar {
+            height: 8px;
+        }
+        .new-table-block::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .new-table-block::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .new-table-block::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .new-table-block.has-scroll::after {
+            content: '← 滑動查看更多 →';
+            position: absolute;
+            bottom: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: #64748b;
+            background: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .controls button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        .controls button:hover {
+            background: #2563eb;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .status.overflow {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+        .status.no-overflow {
+            background: #d1fae5;
+            color: #059669;
+            border: 1px solid #6ee7b7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>表格溢出處理方案測試</h1>
+        <p>此頁面展示如何解決表格超出容器範圍的問題，包含前後對比和動態檢測功能。</p>
+
+        <div class="demo-section">
+            <div class="demo-title">🚫 問題案例：舊的表格樣式</div>
+            <div class="demo-description">
+                使用 `table-layout: fixed` 和 `word-break: break-all` 可能導致內容顯示異常，
+                且無法很好地處理寬內容。
+            </div>
+            <div class="old-table-block" id="oldTable">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>項目編號</th>
+                            <th>檢查項目名稱</th>
+                            <th>詳細說明與要求</th>
+                            <th>檢查結果</th>
+                            <th>備註欄位</th>
+                            <th>負責人員</th>
+                            <th>完成日期</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>001</td>
+                            <td>這是一個很長的檢查項目名稱可能會造成表格佈局問題</td>
+                            <td>這裡是非常詳細的說明文字，包含了很多重要的檢查要求和標準，可能會導致儲存格內容溢出</td>
+                            <td>☑️ 通過</td>
+                            <td>無特殊狀況</td>
+                            <td>張三</td>
+                            <td>2025-06-26</td>
+                        </tr>
+                        <tr>
+                            <td>002</td>
+                            <td>另一個檢查項目</td>
+                            <td>簡短說明</td>
+                            <td>❌ 未通過</td>
+                            <td>需要進一步檢查</td>
+                            <td>李四</td>
+                            <td>待定</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="status no-overflow" id="oldStatus">檢查狀態：無溢出</div>
+        </div>
+
+        <div class="demo-section">
+            <div class="demo-title">✅ 解決方案：優化的表格樣式</div>
+            <div class="demo-description">
+                使用 `table-layout: auto`、改進的文字處理，以及動態溢出檢測。
+                當內容過寬時會自動顯示水平滾動條和提示文字。
+            </div>
+            <div class="controls">
+                <button onclick="addWideContent()">添加寬內容測試</button>
+                <button onclick="resetContent()">重置內容</button>
+                <button onclick="checkOverflow()">檢查溢出狀態</button>
+            </div>
+            <div class="new-table-block" id="newTable">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>項目編號</th>
+                            <th>檢查項目名稱</th>
+                            <th>詳細說明與要求</th>
+                            <th>檢查結果</th>
+                            <th>備註欄位</th>
+                            <th>負責人員</th>
+                            <th>完成日期</th>
+                        </tr>
+                    </thead>
+                    <tbody id="newTableBody">
+                        <tr>
+                            <td>001</td>
+                            <td>這是一個很長的檢查項目名稱可能會造成表格佈局問題</td>
+                            <td>這裡是非常詳細的說明文字，包含了很多重要的檢查要求和標準</td>
+                            <td>☑️ 通過</td>
+                            <td>無特殊狀況</td>
+                            <td>張三</td>
+                            <td>2025-06-26</td>
+                        </tr>
+                        <tr>
+                            <td>002</td>
+                            <td>另一個檢查項目</td>
+                            <td>簡短說明</td>
+                            <td>❌ 未通過</td>
+                            <td>需要進一步檢查</td>
+                            <td>李四</td>
+                            <td>待定</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="status no-overflow" id="newStatus">檢查狀態：無溢出</div>
+        </div>
+
+        <div class="demo-section">
+            <div class="demo-title">📋 解決方案特色</div>
+            <div class="demo-description">
+                <ul>
+                    <li><strong>自動溢出檢測：</strong>JavaScript 動態檢測表格是否超出容器寬度</li>
+                    <li><strong>美化滾動條：</strong>自訂滾動條樣式，提升視覺體驗</li>
+                    <li><strong>智能文字處理：</strong>使用 `word-wrap: break-word` 而非強制斷行</li>
+                    <li><strong>視覺提示：</strong>當有滾動時顯示「滑動查看更多」提示</li>
+                    <li><strong>響應式設計：</strong>在不同螢幕尺寸下自適應調整</li>
+                    <li><strong>平滑過渡：</strong>懸停效果和邊框顏色變化</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function checkOverflow() {
+            // 檢查舊表格
+            const oldTable = document.getElementById('oldTable');
+            const oldStatus = document.getElementById('oldStatus');
+            const oldHasOverflow = oldTable.scrollWidth > oldTable.clientWidth;
+            
+            if (oldHasOverflow) {
+                oldStatus.textContent = '檢查狀態：發現水平溢出';
+                oldStatus.className = 'status overflow';
+            } else {
+                oldStatus.textContent = '檢查狀態：無溢出';
+                oldStatus.className = 'status no-overflow';
+            }
+
+            // 檢查新表格
+            const newTable = document.getElementById('newTable');
+            const newStatus = document.getElementById('newStatus');
+            const newHasOverflow = newTable.scrollWidth > newTable.clientWidth;
+            
+            if (newHasOverflow) {
+                newStatus.textContent = '檢查狀態：發現水平溢出（已自動處理）';
+                newStatus.className = 'status overflow';
+                newTable.classList.add('has-scroll');
+            } else {
+                newStatus.textContent = '檢查狀態：無溢出';
+                newStatus.className = 'status no-overflow';
+                newTable.classList.remove('has-scroll');
+            }
+        }
+
+        function addWideContent() {
+            const tableBody = document.getElementById('newTableBody');
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>003</td>
+                <td>這是一個極度超長的檢查項目名稱用來測試表格在面對超寬內容時的處理能力和響應式表現</td>
+                <td>這是一段非常非常非常長的詳細說明文字，其中包含了大量的技術細節、操作步驟、注意事項以及各種可能遇到的問題和對應的解決方案，目的是測試當儲存格內容極度過長時表格的顯示效果和滾動行為</td>
+                <td>🔄 檢查中</td>
+                <td>這裡是備註欄位的超長內容測試</td>
+                <td>王五</td>
+                <td>2025-06-27</td>
+            `;
+            tableBody.appendChild(newRow);
+            
+            setTimeout(checkOverflow, 100);
+        }
+
+        function resetContent() {
+            const tableBody = document.getElementById('newTableBody');
+            tableBody.innerHTML = `
+                <tr>
+                    <td>001</td>
+                    <td>這是一個很長的檢查項目名稱可能會造成表格佈局問題</td>
+                    <td>這裡是非常詳細的說明文字，包含了很多重要的檢查要求和標準</td>
+                    <td>☑️ 通過</td>
+                    <td>無特殊狀況</td>
+                    <td>張三</td>
+                    <td>2025-06-26</td>
+                </tr>
+                <tr>
+                    <td>002</td>
+                    <td>另一個檢查項目</td>
+                    <td>簡短說明</td>
+                    <td>❌ 未通過</td>
+                    <td>需要進一步檢查</td>
+                    <td>李四</td>
+                    <td>待定</td>
+                </tr>
+            `;
+            
+            setTimeout(checkOverflow, 100);
+        }
+
+        // 監聽視窗大小變化
+        window.addEventListener('resize', checkOverflow);
+        
+        // 頁面載入時檢查
+        document.addEventListener('DOMContentLoaded', checkOverflow);
+    </script>
+</body>
+</html>

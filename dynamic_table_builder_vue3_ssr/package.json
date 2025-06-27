@@ -1,0 +1,27 @@
+{
+  "name": "dynamic_table_builder_vue3_ssr",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vue/server-renderer": "^3.5.17",
+    "@vueup/vue-quill": "^1.2.0",
+    "express": "^4.18.2",
+    "path-to-regexp": "^6.2.1",
+    "quill": "^2.0.3",
+    "vue": "^3.5.17",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "@vue/tsconfig": "^0.7.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.0",
+    "vue-tsc": "^2.2.10"
+  }
+}

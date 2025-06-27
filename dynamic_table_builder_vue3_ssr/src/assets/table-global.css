@@ -1,0 +1,104 @@
+/* 現代化表格樣式 - 使用設計系統 */
+table.preview {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  background: white;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--gray-200);
+}
+
+table.preview th,
+table.preview td {
+  padding: var(--space-4);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--gray-200);
+  border-right: 1px solid var(--gray-200);
+  word-wrap: break-word;
+  min-height: 44px;
+  white-space: pre-line;
+}
+
+table.preview th:last-child,
+table.preview td:last-child {
+  border-right: none;
+}
+
+table.preview tbody tr:last-child td {
+  border-bottom: none;
+}
+
+table.preview thead th {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+  color: var(--primary-700);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+table.preview tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+table.preview tbody tr:hover {
+  background: var(--gray-50);
+}
+
+table.preview tbody tr:nth-child(even) {
+  background: rgba(249, 250, 251, 0.5);
+}
+
+table.preview tbody tr:nth-child(even):hover {
+  background: var(--gray-100);
+}
+
+/* 表格圓角處理 */
+table.preview thead tr:first-child th:first-child {
+  border-top-left-radius: var(--radius-xl);
+}
+
+table.preview thead tr:first-child th:last-child {
+  border-top-right-radius: var(--radius-xl);
+}
+
+table.preview tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius-xl);
+}
+
+table.preview tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius-xl);
+}
+
+/* 通用表格樣式（向後相容） */
+th, td {
+  border: 1px solid var(--gray-200);
+  padding: var(--space-3);
+  min-height: 44px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: pre-line;
+}
+
+th {
+  background: var(--gray-100);
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+/* 響應式表格 */
+@media (max-width: 768px) {
+  table.preview {
+    font-size: var(--text-sm);
+  }
+  
+  table.preview th,
+  table.preview td {
+    padding: var(--space-2);
+  }
+}
+

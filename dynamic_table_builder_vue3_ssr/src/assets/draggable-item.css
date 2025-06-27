@@ -1,0 +1,129 @@
+/* 現代化拖曳 Palette 樣式 */
+.draggable-item {
+  background: white;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  cursor: grab;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all var(--transition-fast);
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.draggable-item:hover {
+  border-color: var(--primary-300);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.draggable-item:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.reusable {
+  background: linear-gradient(135deg, var(--primary-50) 0%, white 100%);
+  border-color: var(--primary-300);
+}
+
+.reusable:hover {
+  border-color: var(--primary-400);
+  background: linear-gradient(135deg, var(--primary-100) 0%, white 100%);
+}
+
+.draggable-item .del-btn {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--error-500);
+  color: white;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  opacity: 0;
+}
+
+.draggable-item:hover .del-btn {
+  opacity: 1;
+}
+
+.del-btn:hover {
+  background: var(--error-600);
+  transform: scale(1.1);
+}
+
+/* 表單元素優化 */
+.draggable-item textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: 60px;
+  font-family: inherit;
+  box-sizing: border-box;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+}
+
+.draggable-item textarea:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.draggable-item input[type="text"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2);
+  font-family: inherit;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.draggable-item input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.draggable-item input[type="checkbox"] {
+  margin-right: var(--space-2);
+  accent-color: var(--primary-500);
+}
+
+/* 拖曳狀態視覺回饋 */
+.draggable-item.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+}
+
+.drop-zone {
+  border: 2px dashed var(--primary-300);
+  background: var(--primary-50);
+  border-radius: var(--radius-lg);
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-600);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.drop-zone.drag-over {
+  border-color: var(--primary-500);
+  background: var(--primary-100);
+  transform: scale(1.02);
+}
