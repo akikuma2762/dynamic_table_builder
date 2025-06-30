@@ -369,9 +369,14 @@ function buildTbody(cfg: TableConfig, defaultBg: string) {
       const data = cs === 1 && rs === 1 && leaf[c].en ? ` data-column="${leaf[c].en}"` : ''
       let raw = cell.text ?? ''
       let html = raw.replace(/\n/g, '<br>')
-      // 若為簽名欄，直接產生 <img>
-      if (cell.value && cell.value.type === 'signature' && cell.value.props?.imageData) {
-        html = `<img src="${cell.value.props.imageData}" style="max-width:100%;max-height:60px;" />`
+      // 若為簽名欄
+      if (cell.value && cell.value.type === 'signature') {
+        if (cell.value.props?.imageData) {
+          html = `<img src="${cell.value.props.imageData}" style="max-width:100%;max-height:60px;" />`
+        } else {
+          // 未簽名時，產生 PaletteSignature.vue 的靜態區塊
+          html = `<div class=\"signature\"><div class=\"sigCanvas\" style=\"width:100%;height:60px;border:1px solid #666;background:#fff;display:flex;align-items:center;justify-content:center;color:#888;\">請簽名</div><div class=\"clearSig\" style=\"font-size:0.75rem;color:#aaa;\">（請於此處簽名）</div></div>`
+        }
       }
       if (!html) html = '&nbsp;'
       if (indexColumns.includes(c) && cs === 1 && rs === 1) {
@@ -381,7 +386,7 @@ function buildTbody(cfg: TableConfig, defaultBg: string) {
       const align = cell.align || 'left'
       const color = cell.color || ''
       const size = cell.size || 16
-      out += `<td data-row="${r}" data-col="${c}"${data}${cs > 1 ? ` colspan="${cs}"` : ''}${rs > 1 ? ` rowspan="${rs}"` : ''} style="text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}">${html}</td>`
+      out += `<td data-row="${r}" data-col="${c}"${data}${cs > 1 ? ` colspan=\"${cs}\"` : ''}${rs > 1 ? ` rowspan=\"${rs}\"` : ''} style="text-align:${align};${color?`color:${color};`:''}${size?`font-size:${size}px;`:''}">${html}</td>`
     }
     if (rowIndexed) indexCounter++
     out += `</tr>`

@@ -1,11 +1,11 @@
 <template>
-  <div class="signature-box" style="min-height:40px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
+  <div class="signature-box" style="width:100%; min-height:40px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
     <template v-if="!showModal">
       <img
         v-if="props.imageData"
         :src="props.imageData"
         alt="簽名"
-        style="border:1px solid #aaa; background:#fff; width:200px; height:60px; object-fit:contain; cursor:pointer;"
+        style="border:1px solid #aaa; background:#fff; width:100%; height:60px; object-fit:contain; cursor:pointer;"
         @click="openModal"
       />
       <div v-else style="width:100%;height:60px;border:1px solid #aaa;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;" @click="openModal">
