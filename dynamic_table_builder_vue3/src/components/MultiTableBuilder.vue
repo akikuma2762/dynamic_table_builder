@@ -141,8 +141,10 @@
   </div>
 </template>
 <script setup lang="ts">
+
 import { ref, reactive } from 'vue'
 import type { TableConfig, HeaderCell, DataCell } from '../types/table'
+import { dynamicTableMultiApi } from '../utils/api'
 
 const numTables = ref(1)
 const mergeTables = ref(false)
@@ -154,16 +156,21 @@ const previewTables = ref('')
 const rowCollapse = reactive<any>({})
 const headerRowCollapse = reactive<any>({})
 
-function getNameList() {
+
+async function refreshNameOptions(selId = '') {
   try {
-    return JSON.parse(localStorage.getItem('dynamicTableMulti__names') || '[]')
-  } catch {
-    return []
+    const res = await dynamicTableMultiApi.getAll()
+    console.log('getAll response', res)
+    if (res.data.data && Array.isArray(res.data.data)) {
+      nameList.value = res.data.data.map((item: any) => item.name)
+      if (selId) loadName.value = selId
+    } else {
+      nameList.value = []
+    }
+  } catch (e) {
+    nameList.value = []
+    alert('取得檔案清單失敗')
   }
-}
-function refreshNameOptions(selId = '') {
-  nameList.value = getNameList()
-  if (selId) loadName.value = selId
 }
 refreshNameOptions()
 
@@ -376,7 +383,7 @@ function getContrastColor(hex: string) {
   const b = parseInt(hex.substr(5, 2), 16)
   return (r * 299 + g * 587 + b * 114) / 1000 >= 128 ? '#000' : '#fff'
 }
-function saveToLocal() {
+async function saveToLocal() {
   // 儲存前先將索引欄排序數字寫入 cell.text
   tableConfigs.value.forEach(cfg => {
     const leaf = getLeaf(cfg)
@@ -393,30 +400,51 @@ function saveToLocal() {
   })
   const name = saveName.value.trim()
   if (!name) { alert('請輸入檔名！'); return }
-  const key = 'dynamicTableMulti__' + name
-  if (localStorage.getItem(key) && !confirm('已存在同名檔案，是否覆蓋？')) return
-  const payload = {
-    configs: tableConfigs.value,
-    numTables: numTables.value,
-    merge: mergeTables.value
+  try {
+    
+    // 先檢查是否已存在
+    const listRes = await dynamicTableMultiApi.getAll()
+    const exists = Array.isArray(listRes.data) && listRes.data.some((item: any) => item.name === name)
+    if (exists && !confirm('已存在同名檔案，是否覆蓋？')) return
+    const payload = {
+      name,
+      configs: JSON.stringify(tableConfigs.value),
+      numTables: numTables.value,
+      merge: mergeTables.value
+    }
+    console.log('payload', payload)
+    let res
+    if (exists) {
+      res = await dynamicTableMultiApi.update(name, payload)
+    } else {
+      res = await dynamicTableMultiApi.create(payload)
+    }
+    if (res.data) {
+      await refreshNameOptions(name)
+      alert('已儲存為「' + name + '」')
+    } else {
+      alert('儲存失敗')
+    }
+  } catch (e: any) {
+    alert('儲存失敗：' + (e?.message || e))
   }
-  localStorage.setItem(key, JSON.stringify(payload))
-  const list = getNameList()
-  if (!list.includes(name)) { list.push(name); localStorage.setItem('dynamicTableMulti__names', JSON.stringify(list)) }
-  refreshNameOptions(name)
-  alert('已儲存為「' + name + '」')
 }
-function loadFromLocal() {
+
+async function loadFromLocal() {
   const name = loadName.value
   if (!name) { alert('請先選擇檔案'); return }
-  const raw = localStorage.getItem('dynamicTableMulti__' + name)
-  console.log('loadFromLocal', name, raw)
-  if (!raw) { alert('找不到資料！'); refreshNameOptions(); return }
   try {
-    const obj = JSON.parse(raw)
+    const res = await dynamicTableMultiApi.get(name)
+    if (!res.data.data) {
+      alert('找不到資料！')
+      await refreshNameOptions()
+      return
+    }
+    const obj = res.data.data
+    console.log('load response', JSON.parse(obj.configs))
     numTables.value = obj.numTables
     mergeTables.value = obj.merge
-    tableConfigs.value = obj.configs
+    tableConfigs.value = JSON.parse(obj.configs)
     onNumTablesChange()
     generatePreview()
   } catch {

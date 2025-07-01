@@ -90,8 +90,11 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import LegacyItemBuilder from './LegacyItemBuilder.vue'
 import PaletteSignature from './PaletteSignature.vue'
 import type { TableConfig } from '../types/table'
-// 新增 TableMultiFile 型別
-import type { TableMultiFile } from '../types/table'
+
+// API 型別
+import { previewTableMultiApi, paletteCustomApi } from '../utils/api'
+import type { PreviewTableMultiResponse } from '../types/previewTableMultiResponse'
+
 
 const nameList = ref<string[]>([])
 const selectedName = ref('')
@@ -233,12 +236,15 @@ function onTableDrop(e: DragEvent) {
   cell.text = html || '&nbsp;'
 }
 
-function loadCustomPalette() {
-  const raw = localStorage.getItem('paletteCustom')
-  if (!raw) return
+
+async function loadCustomPalette() {
   try {
-    customItems.value = JSON.parse(raw)
-  } catch { customItems.value = [] }
+    const res = await paletteCustomApi.getAll()
+    customItems.value = res.data || []
+  } catch (err: any) {
+    customItems.value = []
+    alert('讀取自訂 Palette 失敗：' + (err?.message || err))
+  }
 }
 
 onMounted(() => {
@@ -248,55 +254,69 @@ onMounted(() => {
 onBeforeUnmount(() => {
 });
 
-function getNameList() {
+
+async function refreshNameOptions(selId = '') {
   try {
-    return JSON.parse(localStorage.getItem('dynamicTableMulti__names') || '[]')
-  } catch {
-    return []
+    const res = await previewTableMultiApi.getAll()
+    console.log('取得預覽表格清單：', res.data)
+    
+    nameList.value = res.data.data?.map((item: PreviewTableMultiResponse) => item.name) || []
+    if (selId) selectedName.value = selId
+  } catch (err: any) {
+    alert('取得預覽表格清單失敗：' + (err?.message || err))
+    nameList.value = []
   }
 }
-function refreshNameOptions(selId = '') {
-  nameList.value = getNameList()
-  if (selId) selectedName.value = selId
-}
-function loadFromLocal() {
+
+async function loadFromLocal() {
   const name = selectedName.value
   if (!name) { tableConfigs.value = []; return }
-  const raw = localStorage.getItem('dynamicTableMulti__' + name)
-  if (!raw) { tableConfigs.value = []; return }
   try {
-    const obj = JSON.parse(raw) as TableMultiFile
-    // 相容處理：若有 headerBg，補到 cell.bg
-    if (Array.isArray(obj.configs)) {
-      obj.configs.forEach(cfg => {
-        // 型別保守處理 headerBg
-        if ((cfg as any).headerBg) {
-          cfg.headerRows?.forEach(row => {
-            row.forEach(cell => {
-              if (!cell.bg) cell.bg = (cfg as any).headerBg
-            })
-          })
-          delete (cfg as any).headerBg
-        }
-      })
+    const res = await previewTableMultiApi.get(name)
+    console.log('取得預覽表格：', res.data)
+    if (!res.data) { tableConfigs.value = []; return }
+    // 判別 obj 型別：
+    let obj: any = res.data.data.configs
+    if (typeof obj === 'string') {
+      try {
+        obj = JSON.parse(obj)
+      } catch {
+        obj = { configs: [] }
+      }
     }
-    tableConfigs.value = obj.configs ?? []
-  } catch {
+    // obj 可能為 { configs: [...] } 或直接為陣列
+    let configsArr: any[] = []
+    if (Array.isArray(obj)) {
+      configsArr = obj
+    } else if (Array.isArray(obj.configs)) {
+      configsArr = obj.configs
+    }
+    // 相容處理：若有 headerBg，補到 cell.bg
+    configsArr.forEach((cfg: any) => {
+      if (cfg && cfg.headerBg) {
+        cfg.headerRows?.forEach((row: any[]) => {
+          row.forEach((cell: any) => {
+            if (!cell.bg) cell.bg = cfg.headerBg
+          })
+        })
+        delete cfg.headerBg
+      }
+    })
+    tableConfigs.value = configsArr
+  } catch (err: any) {
+    alert('讀取預覽表格失敗：' + (err?.message || err))
     tableConfigs.value = []
   }
 }
+
 function reload() {
   refreshNameOptions(selectedName.value)
   loadFromLocal()
 }
+
+// 清除所有儲存（API 版本不支援，僅供本地測試用）
 function clearLS() {
-  if (confirm('確定清除所有儲存？')) {
-    Object.keys(localStorage).forEach(k => {
-      if (k.startsWith('dynamicTableMulti__')) localStorage.removeItem(k)
-    })
-    localStorage.removeItem('dynamicTableMulti__names')
-    location.reload()
-  }
+  alert('API 版本不支援清除所有儲存，請至後台管理或資料庫操作。')
 }
 function preview() {
   // 產生預覽 HTML
@@ -464,34 +484,44 @@ function stripPaletteHtml(html: string): string {
     .replace(/<\/div>/g, '')
 }
 
-function savePreviewTable() {
+// (下方重複 import 移除)
+async function savePreviewTable() {
   const name = savePreviewName.value.trim()
   if (!name) { alert('請輸入檔名！'); return }
-  const key = 'previewTableMulti__' + name
-  if (localStorage.getItem(key) && !confirm('已存在同名預覽檔案，是否覆蓋？')) return
   // 深拷貝 tableConfigs，並移除 cell.text 內的 draggable-item reusable/del-btn HTML
-  console.log("表格配置：", tableConfigs.value);
   const cleanConfigs = JSON.parse(JSON.stringify(tableConfigs.value))
   for (const cfg of cleanConfigs) {
     for (const row of cfg.dataRowsCfg) {
       for (const cell of row.cells) {
         if (typeof cell.text === 'string') {
-          // 移除 draggable-item reusable 區塊與 del-btn
           cell.text = stripPaletteHtml(cell.text)
         }
       }
     }
   }
   const payload = {
-    configs: cleanConfigs
+    Name: name,
+    Configs: JSON.stringify({ configs: cleanConfigs })
   }
-  localStorage.setItem(key, JSON.stringify(payload))
-  // 更新名稱清單
-  const listRaw = localStorage.getItem('previewTableMulti__names')
-  let list = []
-  try { list = listRaw ? JSON.parse(listRaw) : [] } catch { list = [] }
-  if (!list.includes(name)) { list.push(name); localStorage.setItem('previewTableMulti__names', JSON.stringify(list)) }
-  alert('已儲存預覽表格為「' + name + '」')
+  console.log('儲存預覽表格：', payload)
+  try {
+    // 先查詢是否已存在
+    let exists = false
+    try {
+      const res = await previewTableMultiApi.get(name)
+      exists = !!res.data
+    } catch {}
+    if (exists && !confirm('已存在同名預覽檔案，是否覆蓋？')) return
+    if (exists) {
+      await previewTableMultiApi.update(name, payload)
+    } else {
+      await previewTableMultiApi.create(payload)
+    }
+    await refreshNameOptions()
+    alert('已儲存預覽表格為「' + name + '」')
+  } catch (err: any) {
+    alert('儲存預覽表格失敗：' + (err?.message || err))
+  }
 }
 
 function isCellCovered(r: number, c: number, cfg: TableConfig) {

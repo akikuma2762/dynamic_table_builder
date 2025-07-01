@@ -89,43 +89,53 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
-import PaletteSignature from './PaletteSignature.vue'
-import type { TableConfig, PaletteField } from '../types/table'
+
 
 // @ts-ignore
 function isCustomValue(val: any): val is { type: 'custom'; fields: PaletteField[] } {
   return val && val.type === 'custom' && Array.isArray(val.fields)
 }
 
+import { onMounted, ref, nextTick } from 'vue'
+import PaletteSignature from './PaletteSignature.vue'
+import type { TableConfig, PaletteField } from '../types/table'
+import { multiTableSavedAreaApi } from '../utils/api'
+import type { MultiTableSavedAreaResponse } from '../types/multiTableSavedAreaResponse'
+
 const nameList = ref<string[]>([])
 const selectedName = ref('')
 const tableConfigs = ref<TableConfig[]>([])
 
-// @ts-ignore
-function getSavedNameList() {
+async function reload() {
   try {
-    return JSON.parse(localStorage.getItem('previewTableMulti__names') || '[]')
-  } catch {
-    return []
+    console.log('重新讀取多表格暫存區清單...')
+    const res = await multiTableSavedAreaApi.getAll()
+    nameList.value = res.data.data?.map((item: MultiTableSavedAreaResponse) => item.name) || []
+    if (selectedName.value) await loadSavedTable()
+  } catch (err: any) {
+    alert('取得清單失敗：' + (err?.message || err))
+    nameList.value = []
   }
 }
-// @ts-ignore
-function reload() {
-  nameList.value = getSavedNameList()
-  if (selectedName.value) loadSavedTable()
-}
-// @ts-ignore
-function loadSavedTable() {
+
+async function loadSavedTable() {
+  console.log('讀取已選擇的表格：', selectedName.value)
   const name = selectedName.value
   if (!name) { tableConfigs.value = []; return }
-  const raw = localStorage.getItem('previewTableMulti__' + name)
-  if (!raw) { tableConfigs.value = []; return }
   try {
-    const obj = JSON.parse(raw)
-    tableConfigs.value = obj.configs || []
-    // 不再重建 cell.text，直接還原原始 HTML
-    // 新增：讀取後 nextTick 自動調整所有 textarea 高度
+    const res = await multiTableSavedAreaApi.get(name)
+    if (!res.data) { tableConfigs.value = []; return }
+    let obj: any = res.data.data.configs
+    if (typeof obj === 'string') {
+      try { obj = JSON.parse(obj) } catch { obj = { configs: [] } }
+    }
+    let configsArr: any[] = []
+    if (Array.isArray(obj)) {
+      configsArr = obj
+    } else if (Array.isArray(obj.configs)) {
+      configsArr = obj.configs
+    }
+    tableConfigs.value = configsArr
     nextTick(() => {
       document.querySelectorAll('textarea').forEach(el => {
         if (el instanceof HTMLTextAreaElement) {
@@ -134,7 +144,8 @@ function loadSavedTable() {
         }
       })
     })
-  } catch {
+  } catch (err: any) {
+    alert('讀取失敗：' + (err?.message || err))
     tableConfigs.value = []
   }
 }
@@ -212,19 +223,33 @@ function stripPaletteHtml(html: string): string {
     .replace(/<div[^>]*>/g, '')
     .replace(/<\/div>/g, '')
 }
-// @ts-ignore
-function saveAllChanges() {
+
+async function saveAllChanges() {
   if (!selectedName.value) {
     alert('請先選擇檔案');
     return;
   }
-  const key = 'previewTableMulti__' + selectedName.value;
   const payload = {
-    configs: tableConfigs.value
-  };
-  console.log('Saving all changes to', key, payload);
-  localStorage.setItem(key, JSON.stringify(payload));
-  alert('已儲存所有更動！');
+    name: selectedName.value,
+    configs: JSON.stringify({ configs: tableConfigs.value })
+  }
+  try {
+    // 先查詢是否已存在
+    let exists = false
+    try {
+      const res = await multiTableSavedAreaApi.get(selectedName.value)
+      exists = !!res.data
+    } catch {}
+    if (exists) {
+      await multiTableSavedAreaApi.update(selectedName.value, payload)
+    } else {
+      await multiTableSavedAreaApi.create(payload)
+    }
+    alert('已儲存所有更動！')
+    await reload()
+  } catch (err: any) {
+    alert('儲存失敗：' + (err?.message || err))
+  }
 }
 onMounted(() => {
   reload()
