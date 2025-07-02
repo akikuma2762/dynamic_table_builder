@@ -240,7 +240,8 @@ function onTableDrop(e: DragEvent) {
 async function loadCustomPalette() {
   try {
     const res = await paletteCustomApi.getAll()
-    customItems.value = res.data || []
+    console.log('取得自訂 Palette：', res.data)
+    customItems.value = res.data.data || []
   } catch (err: any) {
     customItems.value = []
     alert('讀取自訂 Palette 失敗：' + (err?.message || err))

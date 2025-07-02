@@ -7,49 +7,65 @@ import type {
   PreviewTableMultiListResponse,
   PreviewTableMultiSingleResponse
 } from '../types/previewTableMultiResponse';
+import type {
+  PaletteCustomListResponse,
+  PaletteCustomSingleResponse,
+  CreatePaletteCustomRequest,
+  UpdatePaletteCustomRequest
+} from '../types/paletteCustomResponse';
 
+import type { MultiTableSavedAreaListResponse, MultiTableSavedAreaSingleResponse } from '../types/multiTableSavedAreaResponse';
+
+// API 基礎 URL 常數 - 從環境變數讀取
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5048/api';
+
+// 用於代理的 axios 實例 (開發環境通過 Vite 代理)
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' }
 });
 
+// 用於直接呼叫的 axios 實例 (生產環境或跨域呼叫)
+const directApi = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' }
+});
+
 // paletteCustom CRUD
 export const paletteCustomApi = {
-  getAll: () => api.get('/paletteCustom'),
-  get: (id: string) => api.get(`/paletteCustom/${id}`),
-  create: (data: any) => api.post('/paletteCustom', data),
-  update: (id: string, data: any) => api.put(`/paletteCustom/${id}`, data),
-  delete: (id: string) => api.delete(`/paletteCustom/${id}`)
+  getAll: () => directApi.get<PaletteCustomListResponse>('/PaletteCustom'),
+  get: (id: string) => directApi.get<PaletteCustomSingleResponse>(`/PaletteCustom/${id}`),
+  create: (data: CreatePaletteCustomRequest) => directApi.post<PaletteCustomSingleResponse>('/PaletteCustom', data),
+  update: (id: string, data: UpdatePaletteCustomRequest) => directApi.put<PaletteCustomSingleResponse>(`/PaletteCustom/${id}`, data),
+  delete: (id: string) => directApi.delete(`/PaletteCustom/${id}`)
 };
 
 // dynamicTableMulti CRUD
 export const dynamicTableMultiApi = {
-  getAll: () => api.get<DynamicTableMultiListResponse>('http://localhost:81/api/DynamicTableMulti'),
-  get: (name: string) => api.get<DynamicTableMultiSingleResponse>(`http://localhost:81/api/DynamicTableMulti/${name}`),
-  create: (data: any) => api.post('http://localhost:81/api/DynamicTableMulti', data),
-  update: (name: string, data: any) => api.put(`http://localhost:81/api/DynamicTableMulti/${name}`, data),
-  delete: (name: string) => api.delete(`http://localhost:81/api/DynamicTableMulti/${name}`)
+  getAll: () => directApi.get<DynamicTableMultiListResponse>('/DynamicTableMulti'),
+  get: (name: string) => directApi.get<DynamicTableMultiSingleResponse>(`/DynamicTableMulti/${name}`),
+  create: (data: any) => directApi.post('/DynamicTableMulti', data),
+  update: (name: string, data: any) => directApi.put(`/DynamicTableMulti/${name}`, data),
+  delete: (name: string) => directApi.delete(`/DynamicTableMulti/${name}`)
 };
 
 // previewTableMulti CRUD
 export const previewTableMultiApi = {
-  getAll: () => api.get<PreviewTableMultiListResponse>('http://localhost:81/api/PreviewTableMulti'),
-  get: (name: string) => api.get<PreviewTableMultiSingleResponse>(`http://localhost:81/api/PreviewTableMulti/${name}`),
-  create: (data: any) => api.post('http://localhost:81/api/PreviewTableMulti', data),
-  update: (name: string, data: any) => api.put(`http://localhost:81/api/PreviewTableMulti/${name}`, data),
-  delete: (name: string) => api.delete(`http://localhost:81/api/PreviewTableMulti/${name}`)
+  getAll: () => directApi.get<PreviewTableMultiListResponse>('/PreviewTableMulti'),
+  get: (name: string) => directApi.get<PreviewTableMultiSingleResponse>(`/PreviewTableMulti/${name}`),
+  create: (data: any) => directApi.post('/PreviewTableMulti', data),
+  update: (name: string, data: any) => directApi.put(`/PreviewTableMulti/${name}`, data),
+  delete: (name: string) => directApi.delete(`/PreviewTableMulti/${name}`)
 };
 
 
-// multiTableSavedArea CRUD (與其他 API 統一 baseURL 寫法)
-import type { MultiTableSavedAreaResponse } from '../types/multiTableSavedAreaResponse';
 
 export const multiTableSavedAreaApi = {
-  getAll: () => api.get<MultiTableSavedAreaResponse[]>('http://localhost:81/api/MultiTableSavedArea'),
-  get: (name: string) => api.get<MultiTableSavedAreaResponse>(`http://localhost:81/api/MultiTableSavedArea/${name}`),
-  create: (data: { name: string; configs: string }) => api.post('http://localhost:81/api/MultiTableSavedArea', data),
-  update: (name: string, data: { name: string; configs: string }) => api.put(`http://localhost:81/api/MultiTableSavedArea/${name}`, data),
-  delete: (name: string) => api.delete(`http://localhost:81/api/MultiTableSavedArea/${name}`)
+  getAll: () => directApi.get<MultiTableSavedAreaListResponse>('/MultiTableSavedArea'),
+  get: (name: string) => directApi.get<MultiTableSavedAreaSingleResponse>(`/MultiTableSavedArea/${name}`),
+  create: (data: { name: string; configs: string }) => directApi.post('/MultiTableSavedArea', data),
+  update: (name: string, data: { name: string; configs: string }) => directApi.put(`/MultiTableSavedArea/${name}`, data),
+  delete: (name: string) => directApi.delete(`/MultiTableSavedArea/${name}`)
 };
 
 export default api;

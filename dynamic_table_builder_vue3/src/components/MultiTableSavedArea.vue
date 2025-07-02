@@ -91,16 +91,17 @@
 <script setup lang="ts">
 
 
-// @ts-ignore
-function isCustomValue(val: any): val is { type: 'custom'; fields: PaletteField[] } {
-  return val && val.type === 'custom' && Array.isArray(val.fields)
-}
 
 import { onMounted, ref, nextTick } from 'vue'
 import PaletteSignature from './PaletteSignature.vue'
 import type { TableConfig, PaletteField } from '../types/table'
 import { multiTableSavedAreaApi } from '../utils/api'
 import type { MultiTableSavedAreaResponse } from '../types/multiTableSavedAreaResponse'
+
+// @ts-ignore
+function isCustomValue(val: any): val is { type: 'custom'; fields: PaletteField[] } {
+  return val && val.type === 'custom' && Array.isArray(val.fields)
+}
 
 const nameList = ref<string[]>([])
 const selectedName = ref('')

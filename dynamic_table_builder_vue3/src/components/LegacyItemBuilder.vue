@@ -114,6 +114,8 @@ import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import PaletteCheckbox from './PaletteCheckbox.vue'
 import PaletteTextarea from './PaletteTextarea.vue'
 import PaletteSignature from './PaletteSignature.vue'
+import { paletteCustomApi } from '../utils/api'
+import type { PaletteCustomItem } from '../types/paletteCustomResponse'
 
 const props = defineProps<{ collapsed: boolean }>();
 const emit = defineEmits(['update:collapsed'])
@@ -135,7 +137,7 @@ const nativeItems = ref([
   { id: 'txtReusable', component: 'PaletteTextarea', props: { placeholder: '請輸入...' } },
   { id: 'sigReusable', component: 'PaletteSignature', props: {} }
 ])
-const customItems = ref<any[]>([])
+const customItems = ref<PaletteCustomItem[]>([])
 const hoverDrag = ref('')
 const previewHighlight = ref(false)
 
@@ -218,6 +220,7 @@ function onEscPalette(e: KeyboardEvent) {
     paletteCollapsed.value = true
     emit('update:collapsed', true)
   }
+  console.log('Esc pressed, palette collapsed:', e);
 }
 function addCustomCheckbox() {
   if (!quill) return
@@ -242,10 +245,14 @@ function addCustomHtml() {
     alert('尚未設定內容')
     return
   }
-  // 僅新增到 palette，不再 emit 給父元件
+  
   const id = 'custom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
-  customItems.value.push({ id, html })
-  saveCustomPalette()
+  const newItem: PaletteCustomItem = {
+    id,
+    html
+  }
+  
+  saveCustomItem(newItem)
   clearBuilder()
 }
 function clearBuilder() {
@@ -303,19 +310,39 @@ function onPaletteDragStart(item: any, e?: DragEvent) {
     e.dataTransfer!.effectAllowed = 'copy'
   }
 }
-function removeCustomItem(id: string) {
-  customItems.value = customItems.value.filter(i => i.id !== id)
-  saveCustomPalette()
-}
-function saveCustomPalette() {
-  localStorage.setItem('paletteCustom', JSON.stringify(customItems.value))
-}
-function loadCustomPalette() {
-  const raw = localStorage.getItem('paletteCustom')
-  if (!raw) return
+async function saveCustomItem(item: PaletteCustomItem) {
   try {
-    customItems.value = JSON.parse(raw)
-  } catch { customItems.value = [] }
+    const res = await paletteCustomApi.create({
+      id: item.id,
+      html: item.html
+    })
+    if (res.data.success) {
+      customItems.value.push(res.data.data)
+    }
+  } catch (err: any) {
+    alert('儲存失敗：' + (err?.message || err))
+  }
+}
+
+async function removeCustomItem(id: string) {
+  try {
+    await paletteCustomApi.delete(id)
+    customItems.value = customItems.value.filter(i => i.id !== id)
+  } catch (err: any) {
+    alert('刪除失敗：' + (err?.message || err))
+  }
+}
+
+async function loadCustomPalette() {
+  try {
+    const res = await paletteCustomApi.getAll()
+    if (res.data.success) {
+      customItems.value = res.data.data
+    }
+  } catch (err: any) {
+    console.error('載入自訂調色盤失敗：', err)
+    customItems.value = []
+  }
 }
 onMounted(() => {
   loadCustomPalette()
