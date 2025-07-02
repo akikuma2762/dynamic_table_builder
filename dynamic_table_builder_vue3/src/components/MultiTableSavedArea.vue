@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="warpper">
     <h2>多表格暫存/完成區（Saved Area）</h2>
     <div id="savedArea">
       <select v-model="selectedName" @change="loadSavedTable">

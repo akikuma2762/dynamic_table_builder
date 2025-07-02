@@ -1,5 +1,5 @@
 <template>
-  <div :class="['multi-table-preview-root', { 'palette-collapsed': paletteCollapsed }]">
+  <div :class="['warpper', { 'palette-collapsed': paletteCollapsed }]">
     <h3>拖放檢查表（v7 LocalStorage 整合）</h3>
     <div id="controls">
       <button @click="preview">匯出 / 預覽</button>
@@ -12,7 +12,7 @@
       <button @click="loadFromLocal">📂 讀取</button>
     </div>
     <!-- -------- 自訂 Item 產生器 -------- -->
-    <LegacyItemBuilder :collapsed="paletteCollapsed" @update:collapsed="paletteCollapsed = $event" />
+    <!-- <LegacyItemBuilder :collapsed="paletteCollapsed" @update:collapsed="paletteCollapsed = $event" /> -->
     <div class="main-content">
       <h4>編輯區：</h4>
       <div id="tableWrap">
@@ -84,10 +84,12 @@
       </div>
     </div>
   </div>
+  <PaletteWrapper />
 </template>
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import LegacyItemBuilder from './LegacyItemBuilder.vue'
+import PaletteWrapper from './PaletteWrapper.vue'
 import PaletteSignature from './PaletteSignature.vue'
 import type { TableConfig } from '../types/table'
 

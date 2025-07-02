@@ -80,3 +80,9 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+.warpper {
+  width: 100%;
+  /* max-width: 1280px;
+  margin: 0 auto; */
+  padding: 1rem;
+}

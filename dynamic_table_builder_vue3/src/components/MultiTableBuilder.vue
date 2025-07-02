@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="warpper">
     <h2>多表格產生器（Builder）</h2>
     <fieldset>
       <legend>表格數量</legend>
