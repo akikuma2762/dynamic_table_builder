@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>真實資料換行測試</title>
+    <style>
+        body {
+            font-family: Microsoft JhengHei, PingFang TC, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            border: 2px solid #333;
+            table-layout: auto;
+        }
+        
+        .test-table th, .test-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            vertical-align: top;
+            word-wrap: break-word;
+            max-width: 300px;
+        }
+        
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .debug-info {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 真實資料換行測試</h1>
+    <p>使用您提供的真實資料測試換行功能</p>
+    
+    <div class="section">
+        <h2>測試：您的真實資料</h2>
+        <button onclick="testRealData()">測試真實資料</button>
+        <div id="testResult"></div>
+    </div>
+
+    <script>
+        function processTextWithLineBreaks(text) {
+            if (!text) return ''
+            return text.replace(/\\n/g, '<br>')
+        }
+
+        function isCellCoveredInData(r, c, config) {
+            if (!config.dataRowsCfg || config.dataRowsCfg.length === 0) {
+                return false
+            }
+            
+            const rows = config.dataRowsCfg.length
+            const cols = config.dataRowsCfg[0].cells.length
+            let occ = Array.from({ length: rows }, () => Array(cols).fill(false))
+            
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (occ[i][j]) continue
+                    const cell = config.dataRowsCfg[i].cells[j]
+                    let cs = +cell.colspan || 1, rs = +cell.rowspan || 1
+                    for (let rr = 0; rr < rs; rr++) {
+                        for (let cc = 0; cc < cs; cc++) {
+                            if (rr !== 0 || cc !== 0) occ[i + rr][j + cc] = true
+                        }
+                    }
+                }
+            }
+            return occ[r][c]
+        }
+
+        function tableConfigToHtml(config) {
+            let html = '<table class="test-table">'
+            
+            // 資料列
+            config.dataRowsCfg.forEach((row, rowIndex) => {
+                html += '<tr>'
+                
+                row.cells.forEach((cell, cellIndex) => {
+                    if (!isCellCoveredInData(rowIndex, cellIndex, config)) {
+                        const colspan = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ''
+                        const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                        
+                        const bgColor = row.color || '#ffffff'
+                        const textAlign = cell.align || 'center'
+                        const fontSize = cell.size ? `${cell.size}px` : '12px'
+                        const textColor = cell.color || '#000'
+                        const style = `padding: 8px; text-align: ${textAlign}; background-color: ${bgColor}; border: 1px solid #ccc; min-height: 35px; vertical-align: top; font-size: ${fontSize}; color: ${textColor}; word-wrap: break-word;`
+                        
+                        // 處理資料列文字中的換行符號
+                        const cellText = processTextWithLineBreaks(cell.text || '')
+                        html += `<td style="${style}"${colspan}${rowspan}>${cellText}</td>`
+                    }
+                })
+                html += '</tr>'
+            })
+            
+            html += '</table>'
+            return html
+        }
+
+        function testRealData() {
+            console.log('🧪 測試真實資料...')
+            
+            // 您提供的真實資料
+            const config = {
+                dataRowsCfg: [
+                    {
+                        "cells": [
+                            { "size": 16, "text": "MAZAK", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "VP02057813", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "D28", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "CA49-MZ12A03-02", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "CA49-250009", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "CAT/90", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "CAT", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "300", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "G3S/90", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "90", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "NA", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "NA", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false },
+                            { "size": 16, "text": "NA", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false }
+                        ],
+                        "color": "#ffffff"
+                    },
+                    {
+                        "cells": [
+                            {
+                                "size": 16,
+                                "text": "特殊    \\n要求\\nSpecial\\nRequest",
+                                "align": "center",
+                                "color": "#000000",
+                                "colspan": 1,
+                                "rowspan": 1,
+                                "collapsed": false
+                            },
+                            {
+                                "size": 16,
+                                "text": "鋁刀套(防呆),扣刀爪上下間隙0間隙,刀臂彈簧蓋鈑(有開孔)\\n減速機(減速比1:30),\\n大齒輪:小齒輪= 48T:16T,\\n不附刀庫伺服馬達(三菱HK-ST2024WBJNWS-S170001),\\n附凸輪箱,\\n不附凸輪箱馬達(三菱伺服馬達HG-SR1024JKW0C-S170046),\\n(凸輪箱上鎖固馬達孔位\\\"PCD145\\\"),\\n凸輪箱下拉行程100mm,\\n凸輪箱廠加油,\\n倒回刀用之近接開關(Balluff)*2.\\n刀套號碼牌(P40C-0014F01),\\n不附原點SENSOR,\\n附刀庫前蓋,\\n不附退刀缸,但需在退刀處鎖上指示牌(H4GLB1042A03),\\nPU管D8Xd5X10m*2PCS(黑色)(倒回刀風管),\\nPU管D12X3m*1PCS(黑色)(凸輪箱上放氣孔使用),\\n凸輪箱附的90度銅接頭接上刀庫本體,塞頭塞住,\\n使用(DT3A16040A**)鋁板打上DRAIN,貼在刀庫卸油孔上方示意\\n凸輪箱需加貼德大LOGO貼紙.\\n附件內容:\\n介面座(ICA49MZ1201*),\\n調整塊(ICA46MZ1202*)*2pcs,\\n附拔刀器(JP40C0001A**).\\n凸輪箱顏色:N3.0)\\n介面座顏色:N3.0) 本體顏色:N3.0) 鈑金顏色:N3.0)",
+                                "align": "left",
+                                "color": "#000000",
+                                "colspan": 12,
+                                "rowspan": 1,
+                                "collapsed": false
+                            }
+                        ],
+                        "color": "#ffffff"
+                    }
+                ]
+            }
+            
+            let debugInfo = '真實資料換行測試分析:\\n'
+            debugInfo += '========================================\\n'
+            debugInfo += '第一個儲存格: "特殊    \\\\n要求\\\\nSpecial\\\\nRequest"\\n'
+            debugInfo += '➜ 應該顯示為 4 行\\n\\n'
+            debugInfo += '第二個儲存格 (colspan=12): 包含很多 \\\\n 的長文字\\n'
+            debugInfo += '➜ 應該顯示為多行，左對齊\\n\\n'
+            debugInfo += '測試重點:\\n'
+            debugInfo += '✅ 多行文字正確換行\\n'
+            debugInfo += '✅ colspan=12 正確跨欄\\n'
+            debugInfo += '✅ 左對齊和置中對齊都正確\\n'
+            debugInfo += '✅ 儲存格高度自動調整\\n'
+            
+            const htmlResult = tableConfigToHtml(config)
+            
+            document.getElementById('testResult').innerHTML = `
+                <div class="debug-info">${debugInfo}</div>
+                <h4>渲染結果:</h4>
+                ${htmlResult}
+            `
+        }
+
+        // 頁面載入時自動執行測試
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testRealData()
+            }, 500)
+        })
+    </script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>換行符號測試</title>
+    <style>
+        body {
+            font-family: Microsoft JhengHei, PingFang TC, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            border: 2px solid #333;
+        }
+        
+        .test-table th, .test-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            vertical-align: top;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .debug-info {
+            background: #e7f1ff;
+            border: 1px solid #b8daff;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            color: #004085;
+        }
+        
+        .example-text {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>📝 換行符號測試</h1>
+    <p>測試 text 中的 \\n 換行符號是否正確顯示</p>
+    
+    <div class="section">
+        <h2>範例文字：</h2>
+        <div class="example-text">特殊    
+要求
+Special
+Request</div>
+        
+        <h2>測試：包含換行符號的資料</h2>
+        <button onclick="testLineBreaks()">測試換行顯示</button>
+        <div id="testResult"></div>
+    </div>
+
+    <script>
+        // 修正後的函數 - 處理換行符號
+        function processTextWithLineBreaks(text) {
+            if (!text) return ''
+            // 將 \\n 換行符號轉換為 HTML <br> 標籤
+            return text.replace(/\\n/g, '<br>')
+        }
+
+        function getCellDisplayText(text, en) {
+            // 處理主文字中的換行符號
+            const processedText = processTextWithLineBreaks(text) || '&nbsp;'
+            
+            if (en) {
+                // 也處理英文文字中的換行符號
+                const processedEn = processTextWithLineBreaks(en)
+                return `${processedText}<br><small>${processedEn}</small>`
+            }
+            return processedText
+        }
+
+        function isCellCoveredInData(r, c, config) {
+            if (!config.dataRowsCfg || config.dataRowsCfg.length === 0) {
+                return false
+            }
+            
+            const rows = config.dataRowsCfg.length
+            const cols = config.dataRowsCfg[0].cells.length
+            let occ = Array.from({ length: rows }, () => Array(cols).fill(false))
+            
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (occ[i][j]) continue
+                    const cell = config.dataRowsCfg[i].cells[j]
+                    let cs = +cell.colspan || 1, rs = +cell.rowspan || 1
+                    for (let rr = 0; rr < rs; rr++) {
+                        for (let cc = 0; cc < cs; cc++) {
+                            if (rr !== 0 || cc !== 0) occ[i + rr][j + cc] = true
+                        }
+                    }
+                }
+            }
+            return occ[r][c]
+        }
+
+        function tableConfigToHtml(config) {
+            let html = '<table class="test-table">'
+            
+            // 表頭
+            if (config.headerRows) {
+                config.headerRows.forEach(row => {
+                    html += '<tr>'
+                    
+                    row.forEach(cell => {
+                        const colspan = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ''
+                        const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                        const bgColor = cell.bg || '#f5f5f5'
+                        const textAlign = cell.align || 'center'
+                        const fontSize = cell.size ? `${cell.size}px` : '12px'
+                        const textColor = cell.color || '#000'
+                        const style = `background-color: ${bgColor}; text-align: ${textAlign}; font-size: ${fontSize}; color: ${textColor}; padding: 8px; font-weight: bold; min-height: 40px; vertical-align: top;`
+                        
+                        const cellContent = getCellDisplayText(cell.text, cell.en)
+                        html += `<th style="${style}"${colspan}${rowspan}>${cellContent}</th>`
+                    })
+                    html += '</tr>'
+                })
+            }
+            
+            // 資料列
+            config.dataRowsCfg.forEach((row, rowIndex) => {
+                html += '<tr>'
+                
+                row.cells.forEach((cell, cellIndex) => {
+                    if (!isCellCoveredInData(rowIndex, cellIndex, config)) {
+                        const colspan = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ''
+                        const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                        
+                        const bgColor = row.color || '#ffffff'
+                        const textAlign = cell.align || 'center'
+                        const fontSize = cell.size ? `${cell.size}px` : '12px'
+                        const textColor = cell.color || '#000'
+                        const style = `padding: 8px; text-align: ${textAlign}; background-color: ${bgColor}; border: 1px solid #ccc; min-height: 35px; vertical-align: top; font-size: ${fontSize}; color: ${textColor}; word-wrap: break-word; white-space: pre-wrap;`
+                        
+                        // 處理資料列文字中的換行符號
+                        const cellText = processTextWithLineBreaks(cell.text || '')
+                        html += `<td style="${style}"${colspan}${rowspan}>${cellText}</td>`
+                    }
+                })
+                html += '</tr>'
+            })
+            
+            html += '</table>'
+            return html
+        }
+
+        function testLineBreaks() {
+            console.log('📝 測試換行符號處理...')
+            
+            // 您提供的包含換行符號的資料
+            const config = {
+                headerRows: [
+                    [
+                        { bg: "#e0eaff", size: 16, text: "客戶", align: "center", color: "#000000", colspan: 1, rowspan: 1 },
+                        { bg: "#e0eaff", size: 16, text: "訂單編號", align: "center", color: "#000000", colspan: 1, rowspan: 1 },
+                        { bg: "#e0eaff", size: 16, text: "機型", align: "center", color: "#000000", colspan: 1, rowspan: 1 },
+                        { bg: "#e0eaff", size: 16, text: "特殊要求", align: "center", color: "#000000", colspan: 1, rowspan: 1 }
+                    ]
+                ],
+                dataRowsCfg: [
+                    {
+                        cells: [
+                            { size: 16, text: "MAZAK", align: "center", color: "#000000", colspan: 1, rowspan: 1 },
+                            { size: 16, text: "VP02057813", align: "center", color: "#000000", colspan: 1, rowspan: 1 },
+                            { size: 16, text: "D28", align: "center", color: "#000000", colspan: 1, rowspan: 1 },
+                            { size: 16, text: "一般要求", align: "center", color: "#000000", colspan: 1, rowspan: 1 }
+                        ],
+                        color: "#ffffff"
+                    },
+                    {
+                        cells: [
+                            { 
+                                size: 16, 
+                                text: "特殊    \\n要求\\nSpecial\\nRequest", 
+                                align: "center", 
+                                color: "#000000", 
+                                colspan: 1, 
+                                rowspan: 1 
+                            },
+                            { 
+                                size: 16, 
+                                text: "這是一個很長的需求說明\\n包含多行文字\\n需要正確顯示\\n每一行都很重要", 
+                                align: "left", 
+                                color: "#000000", 
+                                colspan: 3, 
+                                rowspan: 1 
+                            }
+                        ],
+                        color: "#ffffff"
+                    }
+                ],
+                dataBg: "#ffffff"
+            }
+            
+            let debugInfo = '換行符號處理測試:\\n'
+            debugInfo += '================================\\n'
+            debugInfo += '原始文字 1: "特殊    \\\\n要求\\\\nSpecial\\\\nRequest"\\n'
+            debugInfo += '處理後應該顯示為 4 行文字\\n\\n'
+            debugInfo += '原始文字 2: "這是一個很長的需求說明\\\\n包含多行文字\\\\n需要正確顯示\\\\n每一行都很重要"\\n'
+            debugInfo += '處理後應該顯示為 4 行文字\\n\\n'
+            debugInfo += '測試重點:\\n'
+            debugInfo += '✅ \\\\n 轉換為 <br> 標籤\\n'
+            debugInfo += '✅ 儲存格高度自動調整\\n'
+            debugInfo += '✅ 文字垂直對齊頂部\\n'
+            debugInfo += '✅ colspan 功能正常運作\\n'
+            
+            const htmlResult = tableConfigToHtml(config)
+            
+            document.getElementById('testResult').innerHTML = `
+                <div class="debug-info">${debugInfo}</div>
+                <h4>渲染結果:</h4>
+                ${htmlResult}
+            `
+        }
+
+        // 頁面載入時自動執行測試
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testLineBreaks()
+            }, 500)
+        })
+    </script>
+</body>
+</html>

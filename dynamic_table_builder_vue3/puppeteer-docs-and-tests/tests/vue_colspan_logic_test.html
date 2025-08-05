@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue Colspan 邏輯測試</title>
+    <style>
+        body {
+            font-family: Microsoft JhengHei, PingFang TC, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            border: 2px solid #333;
+        }
+        
+        .test-table th, .test-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Vue Colspan 邏輯測試</h1>
+    <p>測試您提供的真實表格資料結構</p>
+    
+    <div class="section">
+        <h2>測試 1: 第一個表格第一行 (colspan: 13)</h2>
+        <button onclick="testFirstTableFirstRow()">測試</button>
+        <div id="test1Result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>測試 2: 第一個表格第二行 (colspan: 12 + 1)</h2>
+        <button onclick="testFirstTableSecondRow()">測試</button>
+        <div id="test2Result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>測試 3: 第二個表格第一行 (資料行 colspan: 6)</h2>
+        <button onclick="testSecondTableFirstRow()">測試</button>
+        <div id="test3Result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>測試 4: 完整第二個表格第二行 (資料行 colspan: 12)</h2>
+        <button onclick="testComplexRow()">測試</button>
+        <div id="test4Result"></div>
+    </div>
+
+    <script>
+        // 複製修正後的函數
+        function calculateVisibleCells(cells) {
+            const visibleCells = []
+            let occupiedCells = new Set() // 記錄被佔用的欄位索引
+            
+            for (let i = 0; i < cells.length; i++) {
+                // 如果這個位置已經被前面的 colspan 佔用了，跳過
+                if (occupiedCells.has(i)) {
+                    continue
+                }
+                
+                const cell = cells[i]
+                const colspan = cell.colspan || 1
+                
+                // 這個儲存格應該被渲染
+                visibleCells.push(cell)
+                
+                // 標記被這個儲存格佔用的所有位置
+                for (let j = i; j < i + colspan && j < cells.length; j++) {
+                    occupiedCells.add(j)
+                }
+            }
+            
+            return visibleCells
+        }
+
+        function tableConfigToHtml(headerRows, dataRowsCfg, dataBg = '#ffffff') {
+            let html = '<table class="test-table">'
+            
+            // 表頭
+            headerRows.forEach(row => {
+                html += '<tr>'
+                
+                // 計算應該渲染的儲存格
+                const cellsToRender = calculateVisibleCells(row)
+                
+                cellsToRender.forEach(cell => {
+                    const colspan = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = cell.bg || '#f5f5f5'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `background-color: ${bgColor}; text-align: ${textAlign}; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    html += `<th style="${style}"${colspan}${rowspan}>${cell.text || ''}</th>`
+                })
+                html += '</tr>'
+            })
+            
+            // 資料列
+            dataRowsCfg.forEach(row => {
+                html += '<tr>'
+                
+                // 計算應該渲染的儲存格
+                const cellsToRender = calculateVisibleCells(row.cells)
+                
+                cellsToRender.forEach(cell => {
+                    const colspan = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = row.color || dataBg || '#ffffff'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `background-color: ${bgColor}; text-align: ${textAlign}; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    html += `<td style="${style}"${colspan}${rowspan}>${cell.text || ''}</td>`
+                })
+                html += '</tr>'
+            })
+            
+            html += '</table>'
+            return html
+        }
+
+        function testFirstTableFirstRow() {
+            console.log('🧪 測試第一個表格第一行...')
+            
+            const row = [
+                {
+                    "bg": "#e0eaff",
+                    "en": "",
+                    "size": 16,
+                    "text": "deta International德大機械股份有限公司",
+                    "align": "center",
+                    "color": "#000000",
+                    "width": "",
+                    "colspan": 13,
+                    "indexed": false,
+                    "rowspan": 1,
+                    "collapsed": false
+                }
+            ]
+            
+            const visibleCells = calculateVisibleCells(row)
+            
+            let result = `原始儲存格數量: ${row.length}\n`
+            result += `應該渲染的儲存格數量: ${visibleCells.length}\n\n`
+            
+            result += `原始儲存格:\n`
+            row.forEach((cell, i) => {
+                result += `  [${i}] "${cell.text}" colspan=${cell.colspan}\n`
+            })
+            
+            result += `\n應該渲染的儲存格:\n`
+            visibleCells.forEach((cell, i) => {
+                result += `  [${i}] "${cell.text}" colspan=${cell.colspan}\n`
+            })
+            
+            const htmlResult = tableConfigToHtml([row], [])
+            
+            document.getElementById('test1Result').innerHTML = `
+                <div class="debug-info">${result}</div>
+                <h4>渲染結果:</h4>
+                ${htmlResult}
+            `
+        }
+
+        function testFirstTableSecondRow() {
+            console.log('🧪 測試第一個表格第二行...')
+            
+            const row = [
+                {
+                    "bg": "#e0eaff",
+                    "en": "Chain Type Magazine Inspection Sheet",
+                    "size": 16,
+                    "text": "鍊式刀庫品檢表",
+                    "align": "center",
+                    "color": "#000000",
+                    "width": "",
+                    "colspan": 12,
+                    "indexed": false,
+                    "rowspan": 1,
+                    "collapsed": false
+                },
+                {
+                    "bg": "#e0eaff",
+                    "en": "01-241201",
+                    "size": 16,
+                    "text": "QF-VQ-82207",
+                    "align": "right",
+                    "color": "#000000",
+                    "width": "",
+                    "colspan": 1,
+                    "indexed": false,
+                    "rowspan": 1,
+                    "collapsed": false
+                }
+            ]
+            
+            const visibleCells = calculateVisibleCells(row)
+            
+            let result = `原始儲存格數量: ${row.length}\n`
+            result += `應該渲染的儲存格數量: ${visibleCells.length}\n\n`
+            
+            result += `原始儲存格:\n`
+            row.forEach((cell, i) => {
+                result += `  [${i}] "${cell.text}" colspan=${cell.colspan}\n`
+            })
+            
+            result += `\n應該渲染的儲存格:\n`
+            visibleCells.forEach((cell, i) => {
+                result += `  [${i}] "${cell.text}" colspan=${cell.colspan}\n`
+            })
+            
+            const htmlResult = tableConfigToHtml([row], [])
+            
+            document.getElementById('test2Result').innerHTML = `
+                <div class="debug-info">${result}</div>
+                <h4>渲染結果:</h4>
+                ${htmlResult}
+            `
+        }
+
+        function testSecondTableFirstRow() {
+            console.log('🧪 測試第二個表格第一行...')
+            
+            const dataRow = {
+                "cells": [
+                    {
+                        "size": 16,
+                        "text": "刀庫 gazineTool Ma",
+                        "align": "center",
+                        "color": "#000000",
+                        "colspan": 6,
+                        "rowspan": 1,
+                        "collapsed": false
+                    },
+                    {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                    {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                    {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                    {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                    {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false}
+                ],
+                "color": "#ffadad"
+            }
+            
+            const visibleCells = calculateVisibleCells(dataRow.cells)
+            
+            let result = `原始儲存格數量: ${dataRow.cells.length}\n`
+            result += `應該渲染的儲存格數量: ${visibleCells.length}\n\n`
+            
+            result += `原始儲存格:\n`
+            dataRow.cells.forEach((cell, i) => {
+                result += `  [${i}] "${cell.text || '(空)'}" colspan=${cell.colspan}\n`
+            })
+            
+            result += `\n應該渲染的儲存格:\n`
+            visibleCells.forEach((cell, i) => {
+                result += `  [${i}] "${cell.text || '(空)'}" colspan=${cell.colspan}\n`
+            })
+            
+            const htmlResult = tableConfigToHtml([], [dataRow])
+            
+            document.getElementById('test3Result').innerHTML = `
+                <div class="debug-info">${result}</div>
+                <h4>渲染結果:</h4>
+                ${htmlResult}
+            `
+        }
+
+        function testComplexRow() {
+            console.log('🧪 測試複雜的資料行...')
+            
+            const dataRow = {
+                "cells": [
+                    {"size": 16, "text": "特殊    \n要求\nSpecial\nRequest", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                    {"size": 16, "text": "這是很長的文字內容，應該跨越12個欄位", "align": "left", "color": "#000000", "colspan": 12, "rowspan": 1, "collapsed": false}
+                    // 注意：後面還有11個空白儲存格，但應該被 colspan=12 佔用
+                ],
+                "color": "#ffffff"
+            }
+            
+            // 模擬後面的空白儲存格
+            for (let i = 0; i < 11; i++) {
+                dataRow.cells.push({"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false})
+            }
+            
+            const visibleCells = calculateVisibleCells(dataRow.cells)
+            
+            let result = `原始儲存格數量: ${dataRow.cells.length}\n`
+            result += `應該渲染的儲存格數量: ${visibleCells.length}\n\n`
+            
+            result += `前5個原始儲存格:\n`
+            dataRow.cells.slice(0, 5).forEach((cell, i) => {
+                result += `  [${i}] "${cell.text || '(空)'}" colspan=${cell.colspan}\n`
+            })
+            result += `  ... 等等\n`
+            
+            result += `\n應該渲染的儲存格:\n`
+            visibleCells.forEach((cell, i) => {
+                result += `  [${i}] "${cell.text || '(空)'}" colspan=${cell.colspan}\n`
+            })
+            
+            const htmlResult = tableConfigToHtml([], [dataRow])
+            
+            document.getElementById('test4Result').innerHTML = `
+                <div class="debug-info">${result}</div>
+                <h4>渲染結果:</h4>
+                ${htmlResult}
+            `
+        }
+
+        // 頁面載入時自動執行第一個測試
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testFirstTableFirstRow()
+            }, 500)
+        })
+    </script>
+</body>
+</html>

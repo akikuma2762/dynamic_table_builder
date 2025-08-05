@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colspan 測試</title>
+    <style>
+        body {
+            font-family: Microsoft JhengHei, PingFang TC, sans-serif;
+            margin: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .test-result {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Colspan 測試頁面</h1>
+    
+    <h2>測試 1: 基本 Colspan</h2>
+    <table>
+        <thead>
+            <tr>
+                <th colspan="2">合併的標題</th>
+                <th>單獨標題</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>資料1</td>
+                <td>資料2</td>
+                <td>資料3</td>
+            </tr>
+            <tr>
+                <td colspan="3">橫跨三欄的資料</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h2>測試 2: 複雜 Colspan</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>欄位1</th>
+                <th colspan="2">合併欄位2-3</th>
+                <th>欄位4</th>
+            </tr>
+            <tr>
+                <th>子欄1</th>
+                <th>子欄2</th>
+                <th>子欄3</th>
+                <th>子欄4</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>A1</td>
+                <td>A2</td>
+                <td>A3</td>
+                <td>A4</td>
+            </tr>
+            <tr>
+                <td colspan="2">橫跨前兩欄</td>
+                <td>B3</td>
+                <td>B4</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="test-result">
+        <h3>測試結果</h3>
+        <p>如果您看到表格正確顯示，說明 colspan 功能正常。</p>
+        <p>請檢查：</p>
+        <ul>
+            <li>標題行的 "合併的標題" 是否橫跨兩欄</li>
+            <li>資料行的 "橫跨三欄的資料" 是否橫跨三欄</li>
+            <li>複雜表格的合併是否正確</li>
+        </ul>
+    </div>
+
+    <script>
+        // 測試我們的函數
+        const testConfig = {
+            headerRows: [
+                [
+                    { text: '合併標題', colspan: 2, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' },
+                    { text: '單獨標題', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' }
+                ]
+            ],
+            dataRowsCfg: [
+                {
+                    color: '#ffffff',
+                    cells: [
+                        { text: '資料1', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: '資料2', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: '資料3', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                },
+                {
+                    color: '#ffffff',
+                    cells: [
+                        { text: '橫跨三欄的資料', colspan: 3, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                }
+            ],
+            dataBg: '#ffffff'
+        };
+
+        // 複雜測試配置 - 測試多種 colspan 組合和顏色
+        const complexTestConfig = {
+            headerRows: [
+                [
+                    { text: '分組A', colspan: 2, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#e3f2fd' },
+                    { text: '分組B', colspan: 3, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#fff3e0' },
+                    { text: '單欄', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f3e5f5' }
+                ],
+                [
+                    { text: 'A1', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' },
+                    { text: 'A2', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' },
+                    { text: 'B1', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' },
+                    { text: 'B2', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' },
+                    { text: 'B3', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' },
+                    { text: 'C1', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#f5f5f5' }
+                ]
+            ],
+            dataRowsCfg: [
+                {
+                    color: '#e8f5e8',  // 行背景色 - 淺綠色
+                    cells: [
+                        { text: '數據1-1', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: '數據1-2', colspan: 1, rowspan: 1, align: 'center', color: '#d32f2f', size: 12 },  // 紅色文字
+                        { text: '數據1-3', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: '數據1-4', colspan: 1, rowspan: 1, align: 'center', color: '#1976d2', size: 12 },  // 藍色文字
+                        { text: '數據1-5', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: '數據1-6', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                },
+                {
+                    color: '#fff3e0',  // 行背景色 - 橙色
+                    cells: [
+                        { text: '跨前兩欄', colspan: 2, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: '跨中間三欄', colspan: 3, rowspan: 1, align: 'center', color: '#388e3c', size: 12 },  // 綠色文字
+                        { text: '最後一欄', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                },
+                {
+                    color: '#f3e5f5',  // 行背景色 - 紫色
+                    cells: [
+                        { text: '全欄位橫跨', colspan: 6, rowspan: 1, align: 'center', color: '#7b1fa2', size: 14 }  // 紫色文字，較大字體
+                    ]
+                }
+            ],
+            dataBg: '#ffffff'  // 默認背景色（當行沒有指定顏色時使用）
+        };
+
+        // 模擬 calculateTableColumns 函數
+        function calculateTableColumns(config) {
+            if (config.headerRows.length === 0 && config.dataRowsCfg.length === 0) {
+                return { totalCols: 0, colWidths: [] }
+            }
+
+            let maxCols = 0
+
+            // 檢查所有標題行，找出最大欄位數
+            config.headerRows.forEach(row => {
+                let colCount = 0
+                row.forEach(cell => {
+                    colCount += cell.colspan || 1
+                })
+                maxCols = Math.max(maxCols, colCount)
+            })
+
+            // 檢查所有資料行，找出最大欄位數
+            config.dataRowsCfg.forEach(row => {
+                let colCount = 0
+                row.cells.forEach(cell => {
+                    colCount += cell.colspan || 1
+                })
+                maxCols = Math.max(maxCols, colCount)
+            })
+
+            // 如果有標題行，嘗試從第一行取得欄位寬度設定
+            let colWidths = []
+            if (config.headerRows.length > 0 && config.headerRows[0].length > 0) {
+                const firstHeaderRow = config.headerRows[0]
+                let colIndex = 0
+                
+                firstHeaderRow.forEach(cell => {
+                    const cellWidth = cell.width || 'auto'
+                    const colspan = cell.colspan || 1
+                    
+                    // 為這個儲存格涵蓋的每個欄位設定寬度
+                    for (let i = 0; i < colspan; i++) {
+                        if (colIndex < maxCols) {
+                            colWidths[colIndex] = cellWidth
+                            colIndex++
+                        }
+                    }
+                })
+            }
+
+            // 填補剩餘的欄位為 auto
+            while (colWidths.length < maxCols) {
+                colWidths.push('auto')
+            }
+
+            return { totalCols: maxCols, colWidths }
+        }
+
+        // 模擬 tableConfigToHtml 函數
+        function tableConfigToHtml(config) {
+            let html = '<table style="width: 100%; border-collapse: collapse; font-family: Microsoft JhengHei, PingFang TC, sans-serif; border: 1px solid #ccc; background-color: white; table-layout: auto;">'
+            
+            // 生成 colgroup 來控制欄位寬度
+            if (config.headerRows.length > 0 || config.dataRowsCfg.length > 0) {
+                const { totalCols, colWidths } = calculateTableColumns(config)
+                
+                console.log(`計算出的總欄位數: ${totalCols}`)
+                console.log('欄位寬度:', colWidths)
+                
+                if (totalCols > 0) {
+                    html += '<colgroup>'
+                    colWidths.forEach(width => {
+                        html += `<col style="width: ${width};">`
+                    })
+                    html += '</colgroup>'
+                }
+            }
+            
+            // 表頭
+            config.headerRows.forEach(row => {
+                html += '<tr style="height: 40px;">'
+                row.forEach(cell => {
+                    // 修正 colspan 邏輯：包括 1 的情況
+                    const colspan = cell.colspan ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = cell.bg || '#f5f5f5'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `padding: 8px; text-align: ${textAlign}; font-weight: bold; background-color: ${bgColor}; border: 1px solid #ccc; height: 40px; vertical-align: middle; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    console.log(`標題儲存格: "${cell.text}" colspan="${cell.colspan || 1}" bg="${bgColor}"`)
+                    html += `<th style="${style}"${colspan}${rowspan}>${cell.text || ''}</th>`
+                })
+                html += '</tr>'
+            })
+            
+            // 資料列
+            config.dataRowsCfg.forEach(row => {
+                html += '<tr style="height: 35px;">'
+                row.cells.forEach(cell => {
+                    // 修正 colspan 邏輯：包括 1 的情況
+                    const colspan = cell.colspan ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    
+                    // 修正顏色邏輯：優先順序 row.color > config.dataBg
+                    const bgColor = row.color || config.dataBg || '#ffffff'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `padding: 8px; text-align: ${textAlign}; background-color: ${bgColor}; border: 1px solid #ccc; height: 35px; vertical-align: middle; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    console.log(`資料儲存格: "${cell.text}" colspan="${cell.colspan || 1}" bg="${bgColor}" color="${textColor}"`)
+                    html += `<td style="${style}"${colspan}${rowspan}>${cell.text || ''}</td>`
+                })
+                html += '</tr>'
+            })
+            
+            html += '</table>'
+            return html
+        }
+
+        // 測試並顯示生成的 HTML
+        console.log('=== 基本測試 ===')
+        const generatedHTML = tableConfigToHtml(testConfig);
+        console.log('Generated HTML:', generatedHTML);
+        
+        console.log('\n=== 複雜測試 ===')
+        const complexHTML = tableConfigToHtml(complexTestConfig);
+        console.log('Complex HTML:', complexHTML);
+        
+        // 將生成的表格加入頁面
+        const testDiv = document.createElement('div');
+        testDiv.innerHTML = '<h2>測試 3: 基本生成表格</h2>' + generatedHTML;
+        document.body.appendChild(testDiv);
+        
+        const complexDiv = document.createElement('div');
+        complexDiv.innerHTML = '<h2>測試 4: 複雜 Colspan 測試</h2>' + complexHTML;
+        document.body.appendChild(complexDiv);
+        
+        // 顯示測試結果摘要
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'test-result';
+        resultDiv.innerHTML = `
+            <h3>Colspan 和顏色修正測試完成！</h3>
+            <p><strong>基本測試配置:</strong></p>
+            <ul>
+                <li>總欄位數: ${calculateTableColumns(testConfig).totalCols}</li>
+                <li>標題行中 "合併標題" 的 colspan: 2</li>
+                <li>資料行中 "橫跨三欄的資料" 的 colspan: 3</li>
+            </ul>
+            <p><strong>複雜測試配置（包含顏色測試）:</strong></p>
+            <ul>
+                <li>總欄位數: ${calculateTableColumns(complexTestConfig).totalCols}</li>
+                <li>第一行: "分組A" colspan=2, "分組B" colspan=3, "單欄" colspan=1</li>
+                <li>第二行: 6個單獨欄位</li>
+                <li>資料行1: 淺綠色背景，包含紅色和藍色文字</li>
+                <li>資料行2: 橙色背景，包含跨欄測試和綠色文字</li>
+                <li>資料行3: 紫色背景，全欄位跨越，紫色文字</li>
+            </ul>
+            <p><strong>修正項目:</strong></p>
+            <ul>
+                <li>✅ Colspan 邏輯：現在包括 colspan=1 的情況</li>
+                <li>✅ 背景色邏輯：行級別顏色 > 全局默認顏色</li>
+                <li>✅ 文字顏色：儲存格級別的文字顏色設定</li>
+                <li>✅ Table layout: 使用 auto 而非 fixed</li>
+            </ul>
+            <p><strong>請檢查:</strong> 表格是否正確顯示，colspan 是否發揮作用，顏色是否正確應用。</p>
+        `;
+        document.body.appendChild(resultDiv);
+    </script>
+</body>
+</html>

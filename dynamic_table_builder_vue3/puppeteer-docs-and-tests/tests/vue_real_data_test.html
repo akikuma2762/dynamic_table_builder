@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue 真實資料 Colspan 測試</title>
+    <style>
+        body {
+            font-family: Microsoft JhengHei, PingFang TC, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            border: 2px solid #333;
+        }
+        
+        .test-table th, .test-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>🔬 Vue 真實資料 Colspan 測試</h1>
+    <p>使用您提供的完整表格資料結構進行測試</p>
+    
+    <div class="section">
+        <h2>測試：完整的第一個表格</h2>
+        <button onclick="testFirstCompleteTable()">測試第一個表格</button>
+        <div id="firstTableResult"></div>
+    </div>
+    
+    <div class="section">
+        <h2>測試：完整的第二個表格</h2>
+        <button onclick="testSecondCompleteTable()">測試第二個表格</button>
+        <div id="secondTableResult"></div>
+    </div>
+
+    <script>
+        // 複製修正後的函數
+        function calculateVisibleCells(cells) {
+            const visibleCells = []
+            let occupiedCells = new Set() // 記錄被佔用的欄位索引
+            
+            for (let i = 0; i < cells.length; i++) {
+                // 如果這個位置已經被前面的 colspan 佔用了，跳過
+                if (occupiedCells.has(i)) {
+                    continue
+                }
+                
+                const cell = cells[i]
+                const colspan = cell.colspan || 1
+                
+                // 這個儲存格應該被渲染
+                visibleCells.push(cell)
+                
+                // 標記被這個儲存格佔用的所有位置
+                for (let j = i; j < i + colspan && j < cells.length; j++) {
+                    occupiedCells.add(j)
+                }
+            }
+            
+            return visibleCells
+        }
+
+        function tableConfigToHtml(config) {
+            let html = '<table class="test-table">'
+            
+            // 表頭
+            config.headerRows.forEach(row => {
+                html += '<tr>'
+                
+                // 計算應該渲染的儲存格
+                const cellsToRender = calculateVisibleCells(row)
+                
+                cellsToRender.forEach(cell => {
+                    const colspan = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = cell.bg || '#f5f5f5'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `background-color: ${bgColor}; text-align: ${textAlign}; font-size: ${fontSize}; color: ${textColor}; padding: 8px;`
+                    
+                    html += `<th style="${style}"${colspan}${rowspan}>${cell.text || ''}</th>`
+                })
+                html += '</tr>'
+            })
+            
+            // 資料列
+            config.dataRowsCfg.forEach(row => {
+                html += '<tr>'
+                
+                // 計算應該渲染的儲存格
+                const cellsToRender = calculateVisibleCells(row.cells)
+                
+                cellsToRender.forEach(cell => {
+                    const colspan = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = row.color || '#ffffff'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `background-color: ${bgColor}; text-align: ${textAlign}; font-size: ${fontSize}; color: ${textColor}; padding: 8px;`
+                    
+                    html += `<td style="${style}"${colspan}${rowspan}>${cell.text || ''}</td>`
+                })
+                html += '</tr>'
+            })
+            
+            html += '</table>'
+            return html
+        }
+
+        function testFirstCompleteTable() {
+            console.log('🔬 測試完整第一個表格...')
+            
+            // 第一個表格的真實資料結構
+            const config = {
+                "headerRows": [
+                    [
+                        {
+                            "bg": "#e0eaff",
+                            "en": "",
+                            "size": 16,
+                            "text": "deta International德大機械股份有限公司",
+                            "align": "center",
+                            "color": "#000000",
+                            "width": "",
+                            "colspan": 13,
+                            "indexed": false,
+                            "rowspan": 1,
+                            "collapsed": false
+                        }
+                    ],
+                    [
+                        {
+                            "bg": "#e0eaff",
+                            "en": "Chain Type Magazine Inspection Sheet",
+                            "size": 16,
+                            "text": "鍊式刀庫品檢表",
+                            "align": "center",
+                            "color": "#000000",
+                            "width": "",
+                            "colspan": 12,
+                            "indexed": false,
+                            "rowspan": 1,
+                            "collapsed": false
+                        },
+                        {
+                            "bg": "#e0eaff",
+                            "en": "01-241201",
+                            "size": 16,
+                            "text": "QF-VQ-82207",
+                            "align": "right",
+                            "color": "#000000",
+                            "width": "",
+                            "colspan": 1,
+                            "indexed": false,
+                            "rowspan": 1,
+                            "collapsed": false
+                        }
+                    ]
+                ],
+                "dataRowsCfg": [
+                    {
+                        "cells": [
+                            {"size": 16, "text": "序號", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "檢查項目", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "檢查內容", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false}
+                        ],
+                        "color": "#c5d9ff"
+                    }
+                ]
+            }
+            
+            let debugInfo = ''
+            
+            // 測試每一行的儲存格計算
+            config.headerRows.forEach((row, rowIndex) => {
+                const visibleCells = calculateVisibleCells(row)
+                debugInfo += `表頭第${rowIndex + 1}行:\n`
+                debugInfo += `  原始儲存格: ${row.length} 個\n`
+                debugInfo += `  應渲染儲存格: ${visibleCells.length} 個\n`
+                
+                row.forEach((cell, i) => {
+                    debugInfo += `    [${i}] "${cell.text}" colspan=${cell.colspan}\n`
+                })
+                debugInfo += `  ➜ 實際渲染:\n`
+                visibleCells.forEach((cell, i) => {
+                    debugInfo += `    [${i}] "${cell.text}" colspan=${cell.colspan}\n`
+                })
+                debugInfo += '\n'
+            })
+            
+            config.dataRowsCfg.forEach((row, rowIndex) => {
+                const visibleCells = calculateVisibleCells(row.cells)
+                debugInfo += `資料行第${rowIndex + 1}行:\n`
+                debugInfo += `  原始儲存格: ${row.cells.length} 個\n`
+                debugInfo += `  應渲染儲存格: ${visibleCells.length} 個\n`
+                debugInfo += '\n'
+            })
+            
+            const htmlResult = tableConfigToHtml(config)
+            
+            document.getElementById('firstTableResult').innerHTML = `
+                <div class="debug-info success">${debugInfo}</div>
+                <h4>渲染結果 (第一個表格):</h4>
+                ${htmlResult}
+            `
+        }
+
+        function testSecondCompleteTable() {
+            console.log('🔬 測試完整第二個表格...')
+            
+            // 第二個表格的真實資料結構
+            const config = {
+                "headerRows": [
+                    [
+                        {"bg": "#e0eaff", "size": 16, "text": "刀庫編號", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                        {"bg": "#e0eaff", "size": 16, "text": "檢查項目", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                        {"bg": "#e0eaff", "size": 16, "text": "檢查內容", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                        {"bg": "#e0eaff", "size": 16, "text": "標準值", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                        {"bg": "#e0eaff", "size": 16, "text": "實測值", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                        {"bg": "#e0eaff", "size": 16, "text": "判定", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false}
+                    ]
+                ],
+                "dataRowsCfg": [
+                    {
+                        "cells": [
+                            {
+                                "size": 16,
+                                "text": "刀庫 gazineTool Ma",
+                                "align": "center",
+                                "color": "#000000",
+                                "colspan": 6,
+                                "rowspan": 1,
+                                "collapsed": false
+                            },
+                            {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "", "align": "left", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false}
+                        ],
+                        "color": "#ffadad"
+                    },
+                    {
+                        "cells": [
+                            {"size": 16, "text": "1", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "外觀", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "檢查外殼是否有損傷", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "無損傷", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false},
+                            {"size": 16, "text": "", "align": "center", "color": "#000000", "colspan": 1, "rowspan": 1, "collapsed": false}
+                        ],
+                        "color": "#ffffff"
+                    }
+                ]
+            }
+            
+            let debugInfo = ''
+            
+            // 測試每一行的儲存格計算
+            config.headerRows.forEach((row, rowIndex) => {
+                const visibleCells = calculateVisibleCells(row)
+                debugInfo += `表頭第${rowIndex + 1}行:\n`
+                debugInfo += `  原始儲存格: ${row.length} 個\n`
+                debugInfo += `  應渲染儲存格: ${visibleCells.length} 個\n`
+                debugInfo += '\n'
+            })
+            
+            config.dataRowsCfg.forEach((row, rowIndex) => {
+                const visibleCells = calculateVisibleCells(row.cells)
+                debugInfo += `資料行第${rowIndex + 1}行 (${row.color}):\n`
+                debugInfo += `  原始儲存格: ${row.cells.length} 個\n`
+                debugInfo += `  應渲染儲存格: ${visibleCells.length} 個\n`
+                
+                if (rowIndex === 0) {
+                    debugInfo += `  第一個儲存格: "${row.cells[0].text}" colspan=${row.cells[0].colspan}\n`
+                    debugInfo += `  後續空白儲存格: ${row.cells.length - 1} 個 (應被 colspan 隱藏)\n`
+                }
+                
+                debugInfo += '\n'
+            })
+            
+            const htmlResult = tableConfigToHtml(config)
+            
+            document.getElementById('secondTableResult').innerHTML = `
+                <div class="debug-info success">${debugInfo}</div>
+                <h4>渲染結果 (第二個表格):</h4>
+                ${htmlResult}
+            `
+        }
+
+        // 頁面載入時提示
+        window.addEventListener('load', () => {
+            console.log('✅ 頁面已載入，請點擊按鈕測試')
+        })
+    </script>
+</body>
+</html>

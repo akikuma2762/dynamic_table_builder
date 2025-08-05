@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colspan 詳細診斷工具</title>
+    <style>
+        body {
+            font-family: Microsoft JhengHei, PingFang TC, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .diagnostic-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            border: 2px solid #333;
+        }
+        
+        .test-table th, .test-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .test-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .code-output {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        
+        .highlight {
+            background-color: yellow;
+            padding: 2px 4px;
+        }
+        
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        
+        .warning {
+            color: orange;
+            font-weight: bold;
+        }
+        
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Colspan 詳細診斷工具</h1>
+    
+    <div class="diagnostic-section">
+        <h2>1. 基本 HTML Colspan 測試</h2>
+        <p>首先測試瀏覽器原生 colspan 支援：</p>
+        
+        <table class="test-table">
+            <thead>
+                <tr>
+                    <th colspan="2">應該橫跨兩欄</th>
+                    <th>第三欄</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>A1</td>
+                    <td>A2</td>
+                    <td>A3</td>
+                </tr>
+                <tr>
+                    <td colspan="3">應該橫跨三欄</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p class="success">✅ 如果上表顯示正確，說明瀏覽器支援 colspan</p>
+    </div>
+
+    <div class="diagnostic-section">
+        <h2>2. 生成的 HTML 程式碼檢查</h2>
+        <button onclick="generateAndInspectHTML()">生成並檢查 HTML</button>
+        <button onclick="compareTableLayouts()">比較表格佈局</button>
+        
+        <h3>生成的 HTML 程式碼：</h3>
+        <div id="generatedCode" class="code-output">點擊按鈕開始檢查...</div>
+        
+        <h3>渲染結果：</h3>
+        <div id="renderedResult"></div>
+    </div>
+
+    <div class="diagnostic-section">
+        <h2>3. CSS 樣式影響檢查</h2>
+        <button onclick="testCSSEffects()">測試 CSS 影響</button>
+        
+        <div id="cssTestResults"></div>
+    </div>
+
+    <div class="diagnostic-section">
+        <h2>4. 實際表格結構分析</h2>
+        <button onclick="analyzeTableStructure()">分析表格結構</button>
+        
+        <div id="structureAnalysis"></div>
+    </div>
+
+    <script>
+        // 測試配置
+        const testConfig = {
+            headerRows: [
+                [
+                    { text: '合併兩欄', colspan: 2, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#e3f2fd' },
+                    { text: '第三欄', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#fff3e0' }
+                ]
+            ],
+            dataRowsCfg: [
+                {
+                    color: '#ffffff',
+                    cells: [
+                        { text: 'A1', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: 'A2', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: 'A3', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                },
+                {
+                    color: '#e8f5e8',
+                    cells: [
+                        { text: '橫跨三欄的測試', colspan: 3, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                }
+            ],
+            dataBg: '#ffffff'
+        };
+
+        // 複製修正後的函數
+        function calculateTableColumns(config) {
+            if (config.headerRows.length === 0 && config.dataRowsCfg.length === 0) {
+                return { totalCols: 0, colWidths: [] }
+            }
+
+            let maxCols = 0
+
+            config.headerRows.forEach(row => {
+                let colCount = 0
+                row.forEach(cell => {
+                    colCount += cell.colspan || 1
+                })
+                maxCols = Math.max(maxCols, colCount)
+            })
+
+            config.dataRowsCfg.forEach(row => {
+                let colCount = 0
+                row.cells.forEach(cell => {
+                    colCount += cell.colspan || 1
+                })
+                maxCols = Math.max(maxCols, colCount)
+            })
+
+            let colWidths = []
+            if (config.headerRows.length > 0 && config.headerRows[0].length > 0) {
+                const firstHeaderRow = config.headerRows[0]
+                let colIndex = 0
+                
+                firstHeaderRow.forEach(cell => {
+                    const cellWidth = cell.width || 'auto'
+                    const colspan = cell.colspan || 1
+                    
+                    for (let i = 0; i < colspan; i++) {
+                        if (colIndex < maxCols) {
+                            colWidths[colIndex] = cellWidth
+                            colIndex++
+                        }
+                    }
+                })
+            }
+
+            while (colWidths.length < maxCols) {
+                colWidths.push('auto')
+            }
+
+            return { totalCols: maxCols, colWidths }
+        }
+
+        function tableConfigToHtml(config) {
+            let html = '<table style="width: 100%; border-collapse: collapse; font-family: Microsoft JhengHei, PingFang TC, sans-serif; border: 1px solid #ccc; background-color: white; table-layout: auto;">'
+            
+            if (config.headerRows.length > 0 || config.dataRowsCfg.length > 0) {
+                const { totalCols, colWidths } = calculateTableColumns(config)
+                
+                if (totalCols > 0) {
+                    html += '<colgroup>'
+                    colWidths.forEach(width => {
+                        html += `<col style="width: ${width};">`
+                    })
+                    html += '</colgroup>'
+                }
+            }
+            
+            config.headerRows.forEach(row => {
+                html += '<tr style="height: 40px;">'
+                row.forEach(cell => {
+                    const colspan = cell.colspan ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = cell.bg || '#f5f5f5'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `padding: 8px; text-align: ${textAlign}; font-weight: bold; background-color: ${bgColor}; border: 1px solid #ccc; height: 40px; vertical-align: middle; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    html += `<th style="${style}"${colspan}${rowspan}>${cell.text || ''}</th>`
+                })
+                html += '</tr>'
+            })
+            
+            config.dataRowsCfg.forEach(row => {
+                html += '<tr style="height: 35px;">'
+                row.cells.forEach(cell => {
+                    const colspan = cell.colspan ? ` colspan="${cell.colspan}"` : ''
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = row.color || config.dataBg || '#ffffff'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `padding: 8px; text-align: ${textAlign}; background-color: ${bgColor}; border: 1px solid #ccc; height: 35px; vertical-align: middle; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    html += `<td style="${style}"${colspan}${rowspan}>${cell.text || ''}</td>`
+                })
+                html += '</tr>'
+            })
+            
+            html += '</table>'
+            return html
+        }
+
+        function generateAndInspectHTML() {
+            console.log('🔍 開始生成和檢查 HTML...')
+            
+            const generatedHTML = tableConfigToHtml(testConfig)
+            const codeOutput = document.getElementById('generatedCode')
+            const renderedResult = document.getElementById('renderedResult')
+            
+            // 顯示生成的 HTML 程式碼
+            let formattedHTML = generatedHTML.replace(/></g, '>\n<')
+            
+            // 高亮 colspan 屬性
+            formattedHTML = formattedHTML.replace(/colspan="(\d+)"/g, '<span class="highlight">colspan="$1"</span>')
+            
+            codeOutput.innerHTML = formattedHTML
+            
+            // 渲染結果
+            renderedResult.innerHTML = `
+                <h4>實際渲染結果：</h4>
+                ${generatedHTML}
+                <h4>程式碼分析：</h4>
+                <ul>
+                    <li>總欄位數計算: ${calculateTableColumns(testConfig).totalCols}</li>
+                    <li>Colgroup 生成: ${generatedHTML.includes('<colgroup>') ? '✅ 已生成' : '❌ 未生成'}</li>
+                    <li>Colspan 屬性: ${(generatedHTML.match(/colspan="/g) || []).length} 個</li>
+                    <li>Table layout: ${generatedHTML.includes('table-layout: auto') ? '✅ auto' : '❌ 其他'}</li>
+                </ul>
+            `
+            
+            // 檢查 colspan 是否正確應用
+            analyzeColspanInHTML(generatedHTML)
+        }
+
+        function analyzeColspanInHTML(html) {
+            console.log('📊 分析 HTML 中的 colspan...')
+            
+            const parser = new DOMParser()
+            const doc = parser.parseFromString(html, 'text/html')
+            const table = doc.querySelector('table')
+            
+            if (!table) {
+                console.error('❌ 找不到表格元素')
+                return
+            }
+            
+            const rows = table.querySelectorAll('tr')
+            let analysis = '\n=== COLSPAN 分析結果 ===\n'
+            
+            rows.forEach((row, rowIndex) => {
+                const cells = row.querySelectorAll('th, td')
+                let totalColspan = 0
+                
+                analysis += `第 ${rowIndex + 1} 行:\n`
+                
+                cells.forEach((cell, cellIndex) => {
+                    const colspan = parseInt(cell.getAttribute('colspan') || '1')
+                    totalColspan += colspan
+                    
+                    analysis += `  儲存格 ${cellIndex + 1}: "${cell.textContent}" colspan=${colspan}\n`
+                })
+                
+                analysis += `  總跨欄數: ${totalColspan}\n\n`
+            })
+            
+            console.log(analysis)
+            
+            // 檢查是否有實際的跨欄效果
+            checkVisualColspan(table)
+        }
+
+        function checkVisualColspan(table) {
+            console.log('👁️ 檢查視覺上的跨欄效果...')
+            
+            const rows = table.querySelectorAll('tr')
+            const firstRow = rows[0]
+            const secondRow = rows[1]
+            
+            if (firstRow && secondRow) {
+                const firstRowCells = firstRow.querySelectorAll('th, td')
+                const secondRowCells = secondRow.querySelectorAll('th, td')
+                
+                console.log(`第一行儲存格數量: ${firstRowCells.length}`)
+                console.log(`第二行儲存格數量: ${secondRowCells.length}`)
+                
+                if (firstRowCells.length !== secondRowCells.length) {
+                    console.log('✅ 儲存格數量不同，可能 colspan 有效果')
+                } else {
+                    console.log('⚠️ 儲存格數量相同，可能 colspan 沒有效果')
+                }
+                
+                // 檢查寬度
+                firstRowCells.forEach((cell, index) => {
+                    const width = cell.getBoundingClientRect().width
+                    const colspan = parseInt(cell.getAttribute('colspan') || '1')
+                    console.log(`儲存格 ${index + 1}: 寬度=${width.toFixed(2)}px, colspan=${colspan}`)
+                })
+            }
+        }
+
+        function compareTableLayouts() {
+            console.log('🔄 比較不同 table-layout 設定...')
+            
+            const resultDiv = document.getElementById('renderedResult')
+            
+            // 生成三種不同的表格
+            const layouts = ['auto', 'fixed', 'inherit']
+            let comparison = '<h4>Table Layout 比較:</h4>'
+            
+            layouts.forEach(layout => {
+                let html = tableConfigToHtml(testConfig)
+                html = html.replace('table-layout: auto', `table-layout: ${layout}`)
+                
+                comparison += `
+                    <h5>table-layout: ${layout}</h5>
+                    <div style="border: 2px solid #ddd; margin: 10px 0; padding: 10px;">
+                        ${html}
+                    </div>
+                `
+            })
+            
+            resultDiv.innerHTML = comparison
+        }
+
+        function testCSSEffects() {
+            console.log('🎨 測試 CSS 樣式對 colspan 的影響...')
+            
+            const testDiv = document.getElementById('cssTestResults')
+            
+            // 創建測試用的簡單表格
+            const simpleHTML = `
+                <table style="border-collapse: collapse; width: 100%;">
+                    <tr>
+                        <th colspan="2" style="border: 1px solid #000; padding: 8px; background: #f0f0f0;">應該跨兩欄</th>
+                        <th style="border: 1px solid #000; padding: 8px; background: #f0f0f0;">第三欄</th>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 8px;">A</td>
+                        <td style="border: 1px solid #000; padding: 8px;">B</td>
+                        <td style="border: 1px solid #000; padding: 8px;">C</td>
+                    </tr>
+                </table>
+            `
+            
+            testDiv.innerHTML = `
+                <h4>簡化版測試（排除複雜樣式影響）:</h4>
+                ${simpleHTML}
+                <p>如果上面的簡化版表格 colspan 正常，但我們生成的表格不正常，說明問題在於 CSS 樣式。</p>
+            `
+        }
+
+        function analyzeTableStructure() {
+            console.log('🏗️ 分析表格結構...')
+            
+            const analysis = `
+=== 表格配置分析 ===
+
+標題行結構:
+${JSON.stringify(testConfig.headerRows, null, 2)}
+
+資料行結構:
+${JSON.stringify(testConfig.dataRowsCfg, null, 2)}
+
+計算結果:
+總欄位數: ${calculateTableColumns(testConfig).totalCols}
+欄位寬度: ${JSON.stringify(calculateTableColumns(testConfig).colWidths)}
+
+可能的問題:
+1. Colgroup 設定是否影響 colspan?
+2. 內聯樣式是否覆蓋 colspan?
+3. Table layout 設定是否正確?
+4. 瀏覽器兼容性問題?
+            `
+            
+            document.getElementById('structureAnalysis').innerHTML = `<pre class="code-output">${analysis}</pre>`
+        }
+
+        // 頁面載入時自動執行基本檢查
+        window.addEventListener('load', () => {
+            console.log('🚀 頁面載入完成，開始自動檢查...')
+            setTimeout(() => {
+                generateAndInspectHTML()
+            }, 1000)
+        })
+    </script>
+</body>
+</html>

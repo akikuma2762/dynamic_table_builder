@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colspan 問題追蹤器</title>
+    <style>
+        body {
+            font-family: Microsoft JhengHei, PingFang TC, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            border: 2px solid #333;
+        }
+        
+        .test-table th, .test-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .debug-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐛 Colspan 問題追蹤器</h1>
+    
+    <div class="section">
+        <h2>測試配置</h2>
+        <div id="configDisplay"></div>
+        <button onclick="runDetailedTest()">執行詳細測試</button>
+    </div>
+    
+    <div class="section">
+        <h2>測試結果</h2>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="section">
+        <h2>問題診斷</h2>
+        <div id="diagnosis"></div>
+    </div>
+
+    <script>
+        // 模擬問題配置
+        const problematicConfig = {
+            headerRows: [
+                [
+                    { text: '測試合併欄', colspan: 2, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#e3f2fd' },
+                    { text: '單一欄', colspan: 1, rowspan: 1, width: 'auto', align: 'center', color: '#000', size: 12, bg: '#fff3e0' }
+                ]
+            ],
+            dataRowsCfg: [
+                {
+                    color: '#ffffff',
+                    cells: [
+                        { text: 'A1', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: 'A2', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 },
+                        { text: 'A3', colspan: 1, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                },
+                {
+                    color: '#e8f5e8',
+                    cells: [
+                        { text: '這應該跨三欄', colspan: 3, rowspan: 1, align: 'center', color: '#000', size: 12 }
+                    ]
+                }
+            ],
+            dataBg: '#ffffff'
+        };
+
+        // 當前生產版本的函數（包含最新修正）
+        function calculateTableColumns(config) {
+            console.log('📊 calculateTableColumns 被呼叫', config);
+            
+            if (config.headerRows.length === 0 && config.dataRowsCfg.length === 0) {
+                console.log('⚠️ 空表格，返回 0 欄');
+                return { totalCols: 0, colWidths: [] }
+            }
+
+            let maxCols = 0
+
+            config.headerRows.forEach((row, rowIndex) => {
+                let colCount = 0
+                console.log(`🔍 標題行 ${rowIndex}:`, row);
+                
+                row.forEach((cell, cellIndex) => {
+                    const colspan = cell.colspan || 1;
+                    console.log(`  儲存格 ${cellIndex}: colspan=${cell.colspan} -> 實際使用=${colspan}`);
+                    colCount += colspan
+                })
+                
+                console.log(`  標題行 ${rowIndex} 總欄數: ${colCount}`);
+                maxCols = Math.max(maxCols, colCount)
+            })
+
+            config.dataRowsCfg.forEach((row, rowIndex) => {
+                let colCount = 0
+                console.log(`🔍 資料行 ${rowIndex}:`, row.cells);
+                
+                row.cells.forEach((cell, cellIndex) => {
+                    const colspan = cell.colspan || 1;
+                    console.log(`  儲存格 ${cellIndex}: colspan=${cell.colspan} -> 實際使用=${colspan}`);
+                    colCount += colspan
+                })
+                
+                console.log(`  資料行 ${rowIndex} 總欄數: ${colCount}`);
+                maxCols = Math.max(maxCols, colCount)
+            })
+
+            console.log(`🎯 計算出的最大欄數: ${maxCols}`);
+
+            let colWidths = []
+            if (config.headerRows.length > 0 && config.headerRows[0].length > 0) {
+                const firstHeaderRow = config.headerRows[0]
+                let colIndex = 0
+                
+                firstHeaderRow.forEach(cell => {
+                    const cellWidth = cell.width || 'auto'
+                    const colspan = cell.colspan || 1
+                    
+                    for (let i = 0; i < colspan; i++) {
+                        if (colIndex < maxCols) {
+                            colWidths[colIndex] = cellWidth
+                            colIndex++
+                        }
+                    }
+                })
+            }
+
+            while (colWidths.length < maxCols) {
+                colWidths.push('auto')
+            }
+
+            console.log('📏 計算出的欄位寬度:', colWidths);
+            return { totalCols: maxCols, colWidths }
+        }
+
+        function tableConfigToHtml(config) {
+            console.log('🏗️ 開始生成 HTML 表格', config);
+            
+            let html = '<table style="width: 100%; border-collapse: collapse; font-family: Microsoft JhengHei, PingFang TC, sans-serif; border: 1px solid #ccc; background-color: white; table-layout: auto;">'
+            
+            if (config.headerRows.length > 0 || config.dataRowsCfg.length > 0) {
+                const { totalCols, colWidths } = calculateTableColumns(config)
+                
+                if (totalCols > 0) {
+                    html += '<colgroup>'
+                    colWidths.forEach(width => {
+                        html += `<col style="width: ${width};">`
+                    })
+                    html += '</colgroup>'
+                }
+            }
+            
+            // 標題行
+            config.headerRows.forEach((row, rowIndex) => {
+                console.log(`🎨 生成標題行 ${rowIndex}`);
+                html += '<tr style="height: 40px;">'
+                
+                row.forEach((cell, cellIndex) => {
+                    console.log(`  處理標題儲存格 ${cellIndex}:`, cell);
+                    
+                    // 重點檢查 colspan 邏輯 - 與 Vue 組件保持一致
+                    const colspanValue = cell.colspan;
+                    const colspanAttr = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : '';
+                    
+                    console.log(`    colspan 原始值: ${colspanValue}`);
+                    console.log(`    colspan 屬性: "${colspanAttr}"`);
+                    console.log(`    判斷邏輯: cell.colspan (${colspanValue}) > 1: ${colspanValue > 1}`);
+                    
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = cell.bg || '#f5f5f5'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `padding: 8px; text-align: ${textAlign}; font-weight: bold; background-color: ${bgColor}; border: 1px solid #ccc; height: 40px; vertical-align: middle; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    const cellHtml = `<th style="${style}"${colspanAttr}${rowspan}>${cell.text || ''}</th>`;
+                    console.log(`    生成的 HTML: ${cellHtml}`);
+                    
+                    html += cellHtml;
+                })
+                html += '</tr>'
+            })
+            
+            // 資料列
+            config.dataRowsCfg.forEach((row, rowIndex) => {
+                console.log(`🎨 生成資料行 ${rowIndex}`);
+                html += '<tr style="height: 35px;">'
+                
+                row.cells.forEach((cell, cellIndex) => {
+                    console.log(`  處理資料儲存格 ${cellIndex}:`, cell);
+                    
+                    // 重點檢查 colspan 邏輯 - 與 Vue 組件保持一致
+                    const colspanValue = cell.colspan;
+                    const colspanAttr = cell.colspan && cell.colspan > 1 ? ` colspan="${cell.colspan}"` : '';
+                    
+                    console.log(`    colspan 原始值: ${colspanValue}`);
+                    console.log(`    colspan 屬性: "${colspanAttr}"`);
+                    console.log(`    判斷邏輯: cell.colspan (${colspanValue}) > 1: ${colspanValue > 1}`);
+                    
+                    const rowspan = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : ''
+                    const bgColor = row.color || config.dataBg || '#ffffff'
+                    const textAlign = cell.align || 'center'
+                    const fontSize = cell.size ? `${cell.size}px` : '12px'
+                    const textColor = cell.color || '#000'
+                    const style = `padding: 8px; text-align: ${textAlign}; background-color: ${bgColor}; border: 1px solid #ccc; height: 35px; vertical-align: middle; font-size: ${fontSize}; color: ${textColor};`
+                    
+                    const cellHtml = `<td style="${style}"${colspanAttr}${rowspan}>${cell.text || ''}</td>`;
+                    console.log(`    生成的 HTML: ${cellHtml}`);
+                    
+                    html += cellHtml;
+                })
+                html += '</tr>'
+            })
+            
+            html += '</table>'
+            console.log('✅ HTML 生成完成');
+            return html
+        }
+
+        function runDetailedTest() {
+            console.clear();
+            console.log('🚀 開始詳細測試...');
+            
+            // 顯示配置
+            document.getElementById('configDisplay').innerHTML = `
+                <pre>${JSON.stringify(problematicConfig, null, 2)}</pre>
+            `;
+            
+            // 執行測試
+            const generatedHTML = tableConfigToHtml(problematicConfig);
+            
+            // 分析結果
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(generatedHTML, 'text/html');
+            const table = doc.querySelector('table');
+            
+            let analysisResult = '';
+            let diagnosisResult = '';
+            
+            if (table) {
+                const rows = table.querySelectorAll('tr');
+                
+                analysisResult += '<h3>生成的 HTML 分析:</h3>';
+                analysisResult += `<div class="debug-info">${generatedHTML.replace(/></g, '>\n<')}</div>`;
+                
+                analysisResult += '<h3>表格結構分析:</h3>';
+                analysisResult += '<div class="debug-info">';
+                
+                rows.forEach((row, rowIndex) => {
+                    const cells = row.querySelectorAll('th, td');
+                    analysisResult += `第 ${rowIndex + 1} 行:\n`;
+                    
+                    let totalColspan = 0;
+                    cells.forEach((cell, cellIndex) => {
+                        const colspan = cell.getAttribute('colspan');
+                        const colspanValue = parseInt(colspan || '1');
+                        totalColspan += colspanValue;
+                        
+                        analysisResult += `  儲存格 ${cellIndex + 1}: "${cell.textContent}"\n`;
+                        analysisResult += `    colspan 屬性: ${colspan || '(無)'}\n`;
+                        analysisResult += `    實際寬度: ${cell.getBoundingClientRect().width.toFixed(2)}px\n`;
+                    });
+                    
+                    analysisResult += `  總跨欄數: ${totalColspan}\n`;
+                    analysisResult += `  儲存格數量: ${cells.length}\n\n`;
+                });
+                
+                analysisResult += '</div>';
+                
+                // 診斷問題
+                diagnosisResult += '<h3>問題診斷:</h3>';
+                diagnosisResult += '<div class="debug-info">';
+                
+                // 檢查 colspan 是否正確生成
+                const colspanMatches = generatedHTML.match(/colspan="(\d+)"/g);
+                if (colspanMatches) {
+                    diagnosisResult += `✅ 找到 ${colspanMatches.length} 個 colspan 屬性: ${colspanMatches.join(', ')}\n`;
+                } else {
+                    diagnosisResult += `❌ 沒有找到任何 colspan 屬性\n`;
+                }
+                
+                // 檢查視覺效果
+                const firstRow = rows[0];
+                const secondRow = rows[1];
+                
+                if (firstRow && secondRow) {
+                    const firstRowCells = firstRow.querySelectorAll('th, td');
+                    const secondRowCells = secondRow.querySelectorAll('th, td');
+                    
+                    if (firstRowCells.length !== secondRowCells.length) {
+                        diagnosisResult += `✅ 行間儲存格數量不同 (${firstRowCells.length} vs ${secondRowCells.length})，可能有跨欄效果\n`;
+                    } else {
+                        diagnosisResult += `⚠️ 行間儲存格數量相同 (${firstRowCells.length})，可能跨欄無效\n`;
+                    }
+                    
+                    // 檢查第一個儲存格寬度
+                    if (firstRowCells.length > 0) {
+                        const firstCellWidth = firstRowCells[0].getBoundingClientRect().width;
+                        const expectedColspan = parseInt(firstRowCells[0].getAttribute('colspan') || '1');
+                        
+                        if (expectedColspan > 1) {
+                            diagnosisResult += `🔍 第一個儲存格應該跨 ${expectedColspan} 欄，實際寬度: ${firstCellWidth.toFixed(2)}px\n`;
+                            
+                            if (secondRowCells.length >= 2) {
+                                const secondRowFirstTwo = secondRowCells[0].getBoundingClientRect().width + secondRowCells[1].getBoundingClientRect().width;
+                                diagnosisResult += `🔍 第二行前兩個儲存格總寬度: ${secondRowFirstTwo.toFixed(2)}px\n`;
+                                
+                                if (Math.abs(firstCellWidth - secondRowFirstTwo) < 10) {
+                                    diagnosisResult += `✅ 寬度接近，colspan 可能有效\n`;
+                                } else {
+                                    diagnosisResult += `❌ 寬度差異過大，colspan 可能無效\n`;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                diagnosisResult += '</div>';
+                
+                // 檢查可能的原因
+                diagnosisResult += '<h3>可能的問題原因:</h3>';
+                diagnosisResult += '<ul>';
+                
+                if (!colspanMatches) {
+                    diagnosisResult += '<li class="error">HTML 中沒有生成 colspan 屬性 - 檢查 JavaScript 邏輯</li>';
+                } else if (colspanMatches.includes('colspan="1"')) {
+                    diagnosisResult += '<li class="success">有生成 colspan="1" - 這是正常的</li>';
+                }
+                
+                if (generatedHTML.includes('table-layout: auto')) {
+                    diagnosisResult += '<li class="success">使用 table-layout: auto - 有利於 colspan</li>';
+                } else {
+                    diagnosisResult += '<li class="error">沒有使用 table-layout: auto - 可能影響 colspan</li>';
+                }
+                
+                if (generatedHTML.includes('<colgroup>')) {
+                    diagnosisResult += '<li>使用了 colgroup - 可能需要檢查是否與 colspan 衝突</li>';
+                }
+                
+                diagnosisResult += '</ul>';
+                
+            } else {
+                analysisResult = '<div class="error">無法解析生成的 HTML</div>';
+                diagnosisResult = '<div class="error">無法進行診斷</div>';
+            }
+            
+            document.getElementById('testResults').innerHTML = analysisResult;
+            document.getElementById('diagnosis').innerHTML = diagnosisResult;
+            
+            // 顯示實際渲染的表格
+            document.getElementById('testResults').innerHTML += `
+                <h3>實際渲染結果:</h3>
+                <div style="border: 2px solid #007bff; padding: 10px; margin: 10px 0;">
+                    ${generatedHTML}
+                </div>
+            `;
+        }
+
+        // 頁面載入時自動執行
+        window.addEventListener('load', () => {
+            setTimeout(runDetailedTest, 500);
+        });
+    </script>
+</body>
+</html>

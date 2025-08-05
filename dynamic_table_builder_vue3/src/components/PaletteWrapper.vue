@@ -83,7 +83,7 @@ onMounted(() => {
   loadCustomPalette()
 })
 
-function onEscPalette(e: KeyboardEvent) {
+function onEscPalette() {
   if (!paletteCollapsed.value) {
     paletteCollapsed.value = true
   }
