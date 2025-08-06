@@ -298,10 +298,22 @@ async function exportSingleTablePuppeteer() {
     const { exportSingleTableWithPuppeteer } = await import('../utils/pdfExportPuppeteer')
     
     const filename = `${selectedName.value}_單表格_Puppeteer.pdf`
+    
+    // 等待匯出完成，不在這裡顯示成功訊息
+    // 成功訊息由 exportSingleTableWithPuppeteer 內部的 exportWithBrowserPrint 處理
     await exportSingleTableWithPuppeteer(tableConfigs.value[0], filename, 1)
-    alert('Puppeteer 方法單表格 PDF 匯出成功！')
+    
+    // 只有在真正完成匯出時才顯示訊息
+    console.log('單表格 PDF 匯出流程完成')
+    
   } catch (error: any) {
     console.error('Puppeteer 單表格 PDF 匯出錯誤:', error)
+    
+    if (error.message === '用戶取消匯出操作') {
+      // 用戶主動取消，不顯示錯誤
+      return
+    }
+    
     alert('Puppeteer 單表格 PDF 匯出失敗：' + (error?.message || error))
   }
 }
@@ -326,8 +338,14 @@ async function exportToPDFPuppeteer() {
     }
     console.log("tableData",tableData);
     const filename = `${selectedName.value}_多表格_Puppeteer.pdf`
+    
+    // 等待匯出完成，不在這裡顯示成功訊息
+    // 成功訊息由 exportAllTablesWithPuppeteer 內部的 exportWithBrowserPrint 處理
     await exportAllTablesWithPuppeteer(tableData, filename)
-    alert('Puppeteer 最佳品質方法多表格 PDF 匯出成功！')
+    
+    // 只有在真正完成匯出時才顯示訊息
+    console.log('PDF 匯出流程完成')
+    
   } catch (error: any) {
     console.error('Puppeteer PDF 匯出錯誤:', error)
     

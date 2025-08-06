@@ -433,7 +433,7 @@ async function exportWithPuppeteerNode(htmlContent: string, filename: string): P
 }
 
 /**
- * 瀏覽器環境的替代方案 - 使用瀏覽器列印功能
+ * 瀏覽器環境的替代方案 - 使用隱藏 iframe 列印
  * @param {string} htmlContent - HTML 內容
  * @param {string} filename - 檔案名稱
  * @returns {Promise<void>}
@@ -442,24 +442,48 @@ async function exportWithBrowserPrint(htmlContent: string, filename: string): Pr
   try {
     console.log('🖨️ 使用瀏覽器列印功能...')
     
-    // 創建新視窗來預覽和列印
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) {
-      throw new Error('無法開啟列印視窗，請檢查彈出視窗設定')
+    // 創建隱藏的 iframe 來載入要列印的內容
+    const iframe = document.createElement('iframe')
+    iframe.style.position = 'absolute'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = 'none'
+    iframe.style.visibility = 'hidden'
+    
+    document.body.appendChild(iframe)
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!iframeDoc) {
+      throw new Error('無法存取 iframe 文件')
     }
     
-    printWindow.document.write(htmlContent)
-    printWindow.document.close()
+    // 寫入 HTML 內容到 iframe
+    iframeDoc.open()
+    iframeDoc.write(htmlContent)
+    iframeDoc.close()
     
-    // 等待內容載入完成
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print()
-        printWindow.close()
-      }, 500)
-    }
+    // 等待內容載入完成後列印
+    setTimeout(() => {
+      try {
+        // 讓 iframe 取得焦點並列印
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
+        
+        // 列印完成後移除 iframe
+        setTimeout(() => {
+          document.body.removeChild(iframe)
+        }, 1000)
+        
+      } catch (printError) {
+        console.error('列印過程中發生錯誤:', printError)
+        // 確保清理 iframe
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe)
+        }
+      }
+    }, 500)
     
-    console.log(`🎉 已開啟列印預覽視窗: ${filename}`)
+    console.log(`🎉 已準備列印內容: ${filename}`)
     
   } catch (error) {
     console.error('❌ 瀏覽器列印失敗:', error)
@@ -499,19 +523,18 @@ export async function exportAllTablesWithPuppeteer(
     const fullHTML = createFullHTMLPage(htmlContent)
     
     // 嘗試使用不同的方法，優雅降級
-    try {
-      // 優先嘗試使用本地安裝的 Puppeteer
-      console.log('🔧 嘗試使用本地 Puppeteer...')
-      await exportWithPuppeteerNode(fullHTML, filename)
-    } catch (puppeteerError) {
-      console.warn('本地 Puppeteer 不可用，使用瀏覽器列印功能作為替代方案:', puppeteerError)
+    // TODO: Puppeteer 目前在瀏覽器環境中不可用，暫時註解掉
+    // try {
+    //   // 優先嘗試使用本地安裝的 Puppeteer
+    //   console.log('🔧 嘗試使用本地 Puppeteer...')
+    //   await exportWithPuppeteerNode(fullHTML, filename)
+    // } catch (puppeteerError) {
+    //   console.warn('本地 Puppeteer 不可用，使用瀏覽器列印功能作為替代方案:', puppeteerError)
       
-      // 詢問用戶是否要使用列印預覽
+      // 直接使用瀏覽器列印功能
       const useBackupMethod = confirm(
-        'Puppeteer 不可用。\n\n' +
-        '是否要使用瀏覽器列印功能作為替代方案？\n' +
-        '這將開啟一個新視窗，您可以在瀏覽器中列印或儲存為 PDF。\n\n' +
-        '點擊「確定」繼續，或「取消」中止匯出。'
+        '將使用瀏覽器列印功能匯出 PDF。\n\n' +
+        '點擊「確定」繼續列印，或「取消」中止匯出。'
       )
       
       if (useBackupMethod) {
@@ -519,7 +542,7 @@ export async function exportAllTablesWithPuppeteer(
       } else {
         throw new Error('用戶取消匯出操作')
       }
-    }
+    // }
     
   } catch (error) {
     console.error('❌ PDF 匯出失敗:', error)
@@ -546,19 +569,18 @@ export async function exportSingleTableWithPuppeteer(
     const fullHTML = createFullHTMLPage(tableHTML)
     
     // 嘗試使用不同的方法，優雅降級
-    try {
-      // 優先嘗試使用本地安裝的 Puppeteer
-      console.log('🔧 嘗試使用本地 Puppeteer...')
-      await exportWithPuppeteerNode(fullHTML, filename)
-    } catch (puppeteerError) {
-      console.warn('本地 Puppeteer 不可用，使用瀏覽器列印功能作為替代方案:', puppeteerError)
+    // TODO: Puppeteer 目前在瀏覽器環境中不可用，暫時註解掉
+    // try {
+    //   // 優先嘗試使用本地安裝的 Puppeteer
+    //   console.log('🔧 嘗試使用本地 Puppeteer...')
+    //   await exportWithPuppeteerNode(fullHTML, filename)
+    // } catch (puppeteerError) {
+    //   console.warn('本地 Puppeteer 不可用，使用瀏覽器列印功能作為替代方案:', puppeteerError)
       
-      // 詢問用戶是否要使用列印預覽
+      // 直接使用瀏覽器列印功能
       const useBackupMethod = confirm(
-        'Puppeteer 不可用。\n\n' +
-        '是否要使用瀏覽器列印功能作為替代方案？\n' +
-        '這將開啟一個新視窗，您可以在瀏覽器中列印或儲存為 PDF。\n\n' +
-        '點擊「確定」繼續，或「取消」中止匯出。'
+        '將使用瀏覽器列印功能匯出 PDF。\n\n' +
+        '點擊「確定」繼續列印，或「取消」中止匯出。'
       )
       
       if (useBackupMethod) {
@@ -566,7 +588,7 @@ export async function exportSingleTableWithPuppeteer(
       } else {
         throw new Error('用戶取消匯出操作')
       }
-    }
+    // }
     
   } catch (error) {
     console.error('❌ PDF 匯出失敗:', error)
